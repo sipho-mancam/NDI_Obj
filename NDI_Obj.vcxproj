@@ -132,6 +132,9 @@
   <ItemGroup>
     <ClCompile Include="NDI_Obj.cpp" />
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="NDI_constants.hpp" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

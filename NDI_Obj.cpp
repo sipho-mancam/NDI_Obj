@@ -12,6 +12,8 @@
 #include <cassert>
 #include <conio.h>
 
+#include "NDI_constants.hpp"
+
 #ifdef _WIN32
 #include <windows.h>
 #endif
@@ -253,10 +255,8 @@ private:
 
                     fill.create(cv::Size(video_frame.xres, video_frame.yres), CV_8UC3);
                     
-
                     splitKeyandFill(preview, fill, key);
                 }
-                
 
                 frames->push(video_frame);
 
@@ -265,7 +265,7 @@ private:
                 NDIlib_recv_get_queue(rec_instance, &recv_queue);
                 if (recv_queue.video_frames > 2) {
                     // Display the frames per second
-                    printf("Channel %d queue depth is %d.\n", channel, recv_queue.video_frames);
+                    //printf("Channel %d queue depth is %d.\n", channel, recv_queue.video_frames);
                 }
 
                 if (frames->size() > delay)
@@ -444,6 +444,8 @@ int main()
     Discovery* discovery = new Discovery(&exit_flag);
 
     NDI_Recv* receiver = new NDI_Recv(&exit_flag, 0);
+
+    receiver->enableFillAndKey();
 
     auto start = std::chrono::high_resolution_clock::now();
 
