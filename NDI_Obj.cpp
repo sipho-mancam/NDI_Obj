@@ -9,6 +9,8 @@
 #include <set>
 #include <string>
 #include <queue>
+#include <cassert>
+#include <conio.h>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -20,7 +22,7 @@
 #pragma comment(lib, "Processing.NDI.Lib.x86.lib")
 #endif
 
-#define _DEBUG
+//#define _DEBUG
 
 #include <Processing.NDI.Lib.h>
 #include <exception>
@@ -75,6 +77,9 @@ private:
 
     std::set <std::string> discovered_sources;
     std::set <std::string> saved_sources;
+
+    std::vector<std::string> frozen_list; // we use the frozen list to select devices...
+    std::string selected_device; 
     
     bool status, save, running;
     uint32_t current_sources_count;
@@ -86,6 +91,7 @@ public:
     Discovery(bool* controller, NDIlib_find_create_t desc = (NDIlib_find_create_t)NULL, bool autoID = true) 
         : NDI_Obj(controller), status(true), current_sources_count(0), sources(nullptr), threadI(nullptr), save(true), time_out(1000), running(false)
     {
+        selected_device = "";
         disc_instance = NDIlib_find_create_v2(&discovery_description);
         if (!disc_instance)
         {
@@ -138,6 +144,35 @@ public:
             threadI = nullptr;
         }
     }
+
+    void showMeList()
+    {
+        frozen_list.clear(); // clean the frozen least, so that it's consistent with the display ...
+
+        system("cls");
+        printf("\n\tNDI sources on the Network (%s)\n", selected_device.c_str());
+        printf("\t----------------------------------\n");
+        int i = 0;
+        for (std::string s : this->discovered_sources)
+        {
+            frozen_list.push_back(s);
+            printf("%d.\t%s\n", i, s.c_str());
+            i++;
+        }
+    }
+    
+    std::string selectDevice(int s)
+    {
+        if (s < 0 || s >= frozen_list.size()) return "";
+
+        selected_device = frozen_list[s];
+        return selected_device;
+    }
+
+    std::string getSelectedDevice() { return selected_device; } 
+
+
+
 
     std::set<std::string> getDiscoveredSources() // this will wait for sources ... blocking call
     {
@@ -293,57 +328,81 @@ public:
 };
 
 
+void init()
+{
+    if (NDIlib_is_supported_CPU()) {
+        assert(NDIlib_initialize());
+    }
+    else {
+        std::cerr << "CPU doesn't support NDI Library" << std::endl;
+        throw(NDI_exception("Couldn't initialize NDI .... exiting."));
+    }
+}
+
+void clean_up()
+{
+    NDIlib_destroy();
+}
 
 
 int main()
 {
-    if (NDIlib_is_supported_CPU()) {
-        NDIlib_initialize();
-    }
-    else {
-        std::cerr << "CPU doesn't support NDI Library" << std::endl;
-        return -1;
-    }
+    init();
 
-    bool exit = false;
-    Discovery* discovery = new Discovery(&exit);
+    bool exit_flag = false;
+    Discovery* discovery = new Discovery(&exit_flag);
 
-    std::queue<NDIlib_video_frame_v2_t> frames_q;
-    
-    try{
-
-        discovery->start();
-        std::set<std::string> s = discovery->getDiscoveredSources();
-        int idx = 0;
-        if(s.size() > 0)
-            for (std::string source : s)
-            {
-               // std::cout << source << std::endl;
-                NDI_Recv* receiver = new NDI_Recv(&exit, idx, source);
-                receiver->subscribeQueue(&frames_q);
-                idx++;
-                receiver->start();
-                if (idx == 1) break;
-            }
-        
-    }
-    catch (NDI_exception& e) {
-        std::cerr << e.what() << std::endl;
-    }
     auto start = std::chrono::high_resolution_clock::now();
 
-    while (std::chrono::high_resolution_clock::now() - start < std::chrono::minutes(1))
+    discovery->start();
+
+    int console_key = 0, choice = 0;
+
+    discovery->showMeList();
+
+    while (!exit_flag)
     {
-        std::cout << "Frames (Video): " << frames_q.size() << std::endl;
-        std::this_thread::sleep_for(std::chrono::seconds(1));
+      
+        if (((std::chrono::high_resolution_clock::now() - start) >= std::chrono::seconds(1)))
+        {
+            // update the user list
+            discovery->showMeList();
+
+            start = std::chrono::high_resolution_clock::now();
+        }
+
+
+
+        if (_kbhit()) {
+            console_key = _getch();
+            if (console_key == 27)
+                exit_flag = true;
+
+            switch (console_key)
+            {
+            case 's':
+                std::cout << "Selected Device using index (0, 1, 2 ...etc): ";
+                std::cin >> choice;
+                std::string s = discovery->selectDevice(choice);
+
+                if (!s.empty())
+                {
+                    std::cout << "\nSelected: " << s << std::endl;
+                }
+                else {
+                    std::cout << "Index out of range ..."<<std::endl;
+                }
+                _getch();
+                break;
+            }
+        }
     }
-    
-    exit = true;
 
     delete discovery;
-   
 
-    NDIlib_destroy();
+    
+
+    clean_up();
 
 }
 
