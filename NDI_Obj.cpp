@@ -194,6 +194,9 @@ public:
 
 
 
+
+
+
 class NDI_Recv : public NDI_Obj {
 private:
     std::string source;
@@ -205,14 +208,14 @@ private:
     uint32_t delay;
     std::queue<NDIlib_video_frame_v2_t> *frames;
 
-    bool connected;
+    bool connected, running;
 
     void run() override
     {
         if (!frames)
             frames = new std::queue<NDIlib_video_frame_v2_t>();
 
-        while (!(*exit))
+        while (!(*exit) && running)
         {
             // The descriptors
             NDIlib_video_frame_v2_t video_frame;
@@ -222,13 +225,14 @@ private:
             switch (NDIlib_recv_capture_v2(rec_instance, &video_frame, NULL, &metadata_frame, timeout)) {
                 // No data
             case NDIlib_frame_type_none:
-                //std::cout << "No data" << std::endl;
                 break;
 
                 // Video data
             case NDIlib_frame_type_video:
             {
+#ifdef _DEBUG
                 printf("Channel %d %s : Video received: %u x %u\n", channel, source.c_str(), video_frame.xres, video_frame.yres);
+#endif
 
                 frames->push(video_frame);
 
@@ -287,7 +291,7 @@ public:
             sprintf_s(buf, "Channel %u", channel);
             recv_desc.p_ndi_recv_name = buf;
 
-            rec_instance = NDIlib_recv_create_v3(&recv_desc);
+            
 
             if (!rec_instance)
             {
@@ -295,6 +299,7 @@ public:
             }
             connected = true;
         }
+        rec_instance = NDIlib_recv_create_v3(&recv_desc);
         
     }
 
@@ -308,12 +313,13 @@ public:
     void connect(std::string s)
     {
         if (s.empty())return;
+
         // disconnect first
         NDIlib_recv_connect(rec_instance, NULL);
 
         source = s;
+        s_connect.p_ndi_name = source.c_str();
 
-        recv_desc.source_to_connect_to = s.c_str();
         // connect to the new source
         NDIlib_recv_connect(rec_instance, &s_connect);
 
@@ -334,9 +340,21 @@ public:
 
     void start()
     {
+        running = true;
         if(connected)
             this->receiver_thread = new std::thread(&NDI_Recv::run, this);
 
+    }
+
+    void stop()
+    {
+        if (running)
+        {
+            running = false;
+            this->receiver_thread->join();
+            delete this->receiver_thread;
+        }
+        
     }
 
     void popFrame()
@@ -359,8 +377,7 @@ public:
 
     ~NDI_Recv()
     {
-        receiver_thread->join();
-        delete receiver_thread;
+        this->stop();
         NDIlib_recv_destroy(rec_instance);
     }
 };
@@ -410,8 +427,6 @@ int main()
             start = std::chrono::high_resolution_clock::now();
         }
 
-
-
         if (_kbhit()) {
             console_key = _getch();
             if (console_key == 27)
@@ -421,11 +436,13 @@ int main()
             {
             case 's':
             {
+             
+                receiver->stop(); 
+                system("cls");
+                discovery->showMeList();
                 std::cout << "Selected Device using index (0, 1, 2 ...etc): ";
                 std::cin >> choice;
                 std::string s = discovery->selectDevice(choice);
-
-                receiver->connect(s);
 
                 if (s.empty())
                 {
@@ -433,6 +450,10 @@ int main()
                     _getch();
                 }
 
+                if(!s.empty())
+                    receiver->connect(s);
+
+                receiver->start();
                 std::cin.clear();
                 break;
             }
