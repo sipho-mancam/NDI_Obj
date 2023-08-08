@@ -150,8 +150,8 @@ public:
         frozen_list.clear(); // clean the frozen least, so that it's consistent with the display ...
 
         system("cls");
-        printf("\n\tNDI sources on the Network (%s)\n", selected_device.c_str());
-        printf("\t----------------------------------\n");
+        printf("\n\tNDI sources on the Network %s\n",selected_device.empty()?"":std::string("--> "+selected_device).c_str());
+        printf("\t-----------------------------------------\n");
         int i = 0;
         for (std::string s : this->discovered_sources)
         {
@@ -205,38 +205,9 @@ private:
     uint32_t delay;
     std::queue<NDIlib_video_frame_v2_t> *frames;
 
-public:
-    NDI_Recv(bool *controller, uint32_t c, std::string s) 
-        : channel(c), source(s) , NDI_Obj(controller), receiver_thread(nullptr), frames(nullptr), delay(3)
-    {
-        if (s.empty())
-        {
-            char buf[2048];
-            sprintf_s(buf, "Value Error: Cannot pass empty source\nat: %s : line: %d", __FILE__, __LINE__);
-            throw(NDI_exception( buf ));
-        }
-        s_connect.p_ndi_name = source.c_str();
+    bool connected;
 
-        recv_desc.bandwidth = NDIlib_recv_bandwidth_highest;
-        recv_desc.source_to_connect_to = s_connect;
-        char buf[256] = { 0, };
-        sprintf_s(buf, "Channel %u", channel);
-        recv_desc.p_ndi_recv_name = buf;
-
-        rec_instance = NDIlib_recv_create_v3(&recv_desc);
-
-        if (!rec_instance)
-        {
-            throw(NDI_exception("Failed to create receiver."));
-        }
-    }
-
-    void subscribeQueue(std::queue< NDIlib_video_frame_v2_t>* qu)
-    {
-        frames = qu;
-    }
-
-    void run() override 
+    void run() override
     {
         if (!frames)
             frames = new std::queue<NDIlib_video_frame_v2_t>();
@@ -257,7 +228,7 @@ public:
                 // Video data
             case NDIlib_frame_type_video:
             {
-                printf("Channel %d %s : Video received: %u x %u\n",channel, source.c_str(), video_frame.xres, video_frame.yres);
+                printf("Channel %d %s : Video received: %u x %u\n", channel, source.c_str(), video_frame.xres, video_frame.yres);
 
                 frames->push(video_frame);
 
@@ -278,9 +249,9 @@ public:
                 break;
             }
 
-                // Meta data
+            // Meta data
             case NDIlib_frame_type_metadata:
-               //printf("Length: %d\nMeta: %s \n", metadata_frame.length, metadata_frame.p_data);
+                //printf("Length: %d\nMeta: %s \n", metadata_frame.length, metadata_frame.p_data);
                 NDIlib_recv_free_metadata(rec_instance, &metadata_frame);
                 break;
 
@@ -296,15 +267,82 @@ public:
         }
     }
 
+public:
+
+    NDI_Recv(bool *controller, uint32_t c=-1, std::string s="")
+        : channel(c), source(s) , NDI_Obj(controller), receiver_thread(nullptr), frames(nullptr), delay(3), connected(false)
+    {
+        if (channel == -1)
+            channel = id+10;
+
+        if (!s.empty())
+        {
+            s_connect.p_ndi_name = source.c_str();
+
+            recv_desc.bandwidth = NDIlib_recv_bandwidth_highest;
+            recv_desc.source_to_connect_to = s_connect; // this will allow the NDI endpoint connect to the specified string upon creation...
+            recv_desc.color_format = NDIlib_recv_color_format_best;
+
+            char buf[256] = { 0, };
+            sprintf_s(buf, "Channel %u", channel);
+            recv_desc.p_ndi_recv_name = buf;
+
+            rec_instance = NDIlib_recv_create_v3(&recv_desc);
+
+            if (!rec_instance)
+            {
+                throw(NDI_exception("Failed to create receiver."));
+            }
+            connected = true;
+        }
+        
+    }
+
+    void disconnect()
+    {
+        connected = false;
+        // disconnect first
+        NDIlib_recv_connect(rec_instance, NULL);
+    }
+
+    void connect(std::string s)
+    {
+        if (s.empty())return;
+        // disconnect first
+        NDIlib_recv_connect(rec_instance, NULL);
+
+        source = s;
+
+        recv_desc.source_to_connect_to = s.c_str();
+        // connect to the new source
+        NDIlib_recv_connect(rec_instance, &s_connect);
+
+        if (!rec_instance)
+        {
+            throw(NDI_exception("Failed to create receiver."));
+        }
+
+        connected = true;
+
+        std::cout << "Connected ..." << std::endl;
+    }
+
+    void subscribeToQueue(std::queue< NDIlib_video_frame_v2_t>* qu)
+    {
+        frames = qu;
+    }
+
     void start()
     {
-        this->receiver_thread = new std::thread(&NDI_Recv::run, this);
+        if(connected)
+            this->receiver_thread = new std::thread(&NDI_Recv::run, this);
 
     }
 
     void popFrame()
     {
-        
+        NDIlib_recv_free_video_v2(rec_instance, (NDIlib_video_frame_v2_t*)&frames->front());
+        frames->pop();
     }
 
     void clearAll()
@@ -352,6 +390,8 @@ int main()
     bool exit_flag = false;
     Discovery* discovery = new Discovery(&exit_flag);
 
+    NDI_Recv* receiver = new NDI_Recv(&exit_flag, 0);
+
     auto start = std::chrono::high_resolution_clock::now();
 
     discovery->start();
@@ -367,7 +407,6 @@ int main()
         {
             // update the user list
             discovery->showMeList();
-
             start = std::chrono::high_resolution_clock::now();
         }
 
@@ -381,19 +420,34 @@ int main()
             switch (console_key)
             {
             case 's':
+            {
                 std::cout << "Selected Device using index (0, 1, 2 ...etc): ";
                 std::cin >> choice;
                 std::string s = discovery->selectDevice(choice);
 
-                if (!s.empty())
+                receiver->connect(s);
+
+                if (s.empty())
                 {
-                    std::cout << "\nSelected: " << s << std::endl;
+                    std::cout << "Index out of range ..." << std::endl;
+                    _getch();
                 }
-                else {
-                    std::cout << "Index out of range ..."<<std::endl;
-                }
+
+                std::cin.clear();
+                break;
+            }
+            
+
+            case 'v': // view the selected device
+            {
+                system("Cls");
+                printf("Selected Device\n-----------------\n");
+                std::cout << discovery->getSelectedDevice() << std::endl;
+                std::cout << "\n\n Press any key ..." << std::endl;
                 _getch();
                 break;
+            }
+               
             }
         }
     }
