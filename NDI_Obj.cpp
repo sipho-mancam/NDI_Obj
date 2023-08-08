@@ -22,7 +22,14 @@
 #pragma comment(lib, "Processing.NDI.Lib.x86.lib")
 #endif
 
-//#define _DEBUG
+#define _DEBUG
+
+#ifdef _DEBUG
+
+#include <opencv2/opencv.hpp>
+#include <opencv2/highgui.hpp>
+
+#endif
 
 #include <Processing.NDI.Lib.h>
 #include <exception>
@@ -208,13 +215,14 @@ private:
     uint32_t delay;
     std::queue<NDIlib_video_frame_v2_t> *frames;
 
-    bool connected, running;
+    bool connected, running, fillAndKey;
 
     void run() override
     {
+        
         if (!frames)
             frames = new std::queue<NDIlib_video_frame_v2_t>();
-
+        cv::Mat preview;
         while (!(*exit) && running)
         {
             // The descriptors
@@ -233,6 +241,22 @@ private:
 #ifdef _DEBUG
                 printf("Channel %d %s : Video received: %u x %u\n", channel, source.c_str(), video_frame.xres, video_frame.yres);
 #endif
+                if (fillAndKey)
+                {
+                    preview.create(cv::Size(video_frame.xres, video_frame.yres), CV_8UC4);
+                    preview.step = video_frame.line_stride_in_bytes;
+                    preview.data = video_frame.p_data;
+
+                    cv::Mat key, fill;
+
+                    key.create(cv::Size(video_frame.xres, video_frame.yres), CV_8UC1);
+
+                    fill.create(cv::Size(video_frame.xres, video_frame.yres), CV_8UC3);
+                    
+
+                    splitKeyandFill(preview, fill, key);
+                }
+                
 
                 frames->push(video_frame);
 
@@ -271,10 +295,19 @@ private:
         }
     }
 
+    void splitKeyandFill(cv::Mat& src, cv::Mat& dstA, cv::Mat& dstB /*This must be the alpha channel*/)
+    {
+        // assuming dstA and dstB are pre-allocated ... split the channels...
+        cv::Mat out[] = { dstA, dstB };
+        int from_to[] = { 0,0, 1,1, 2,2, 3,3 };
+
+        cv::mixChannels(&src, 1, out, 2, from_to, 4);
+    }
+
 public:
 
     NDI_Recv(bool *controller, uint32_t c=-1, std::string s="")
-        : channel(c), source(s) , NDI_Obj(controller), receiver_thread(nullptr), frames(nullptr), delay(3), connected(false)
+        : channel(c), source(s) , NDI_Obj(controller), receiver_thread(nullptr), frames(nullptr), delay(3), connected(false), fillAndKey(false)
     {
         if (channel == -1)
             channel = id+10;
@@ -302,6 +335,9 @@ public:
         rec_instance = NDIlib_recv_create_v3(&recv_desc);
         
     }
+
+    void enableFillAndKey() { this->fillAndKey = true; }
+    void disableFillAndKey() { this->fillAndKey = false; }
 
     void disconnect()
     {
