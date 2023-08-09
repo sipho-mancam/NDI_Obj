@@ -249,9 +249,7 @@ private:
             {
 #ifdef _DEBUG
                 
-                nFrame.AddFrame(&video_frame);
-
-                nFrame.printParams();
+              
 #endif
                 if (fillAndKey)
                 {
@@ -269,7 +267,6 @@ private:
                     
                     splitKeyandFill(preview, fill, key);
 
-                    
                     //fillPort->SetRowBytes(preview.step);
                     fillPort->AddFrame(preview.data, preview.step * preview.rows);
                     fillPort->DisplayFrame();

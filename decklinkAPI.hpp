@@ -272,7 +272,7 @@ public:
             }
         }
 
-        selectedMode = 9; // 1080p50 1920 x 1080 50 fps 
+        selectedMode = 9;//40; // 1080p50 1920 x 1080 50 fps 
         displayMode = displayModes[selectedMode];
 
         frame = new VideoFrameObj(displayMode->GetWidth(), displayMode->GetHeight(), pixelFormat);
