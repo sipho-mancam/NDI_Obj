@@ -12,8 +12,6 @@
 #include <cassert>
 #include <conio.h>
 
-#include "NDI_constants.hpp"
-
 #ifdef _WIN32
 #include <windows.h>
 #endif
@@ -35,6 +33,10 @@
 
 #include <Processing.NDI.Lib.h>
 #include <exception>
+
+#include "NDI_constants.hpp"
+#include "common.hpp"
+#include "decklinkAPI.hpp"
 
 
 static uint32_t ids = 0;
@@ -217,7 +219,12 @@ private:
     uint32_t delay;
     std::queue<NDIlib_video_frame_v2_t> *frames;
 
+    DeckLinkPort* keyPort;
+    DeckLinkPort* fillPort;
+
     bool connected, running, fillAndKey;
+
+    NDIVideoFrame nFrame;
 
     void run() override
     {
@@ -241,7 +248,10 @@ private:
             case NDIlib_frame_type_video:
             {
 #ifdef _DEBUG
-                printf("Channel %d %s : Video received: %u x %u\n", channel, source.c_str(), video_frame.xres, video_frame.yres);
+                
+                nFrame.AddFrame(&video_frame);
+
+                nFrame.printParams();
 #endif
                 if (fillAndKey)
                 {
@@ -249,13 +259,24 @@ private:
                     preview.step = video_frame.line_stride_in_bytes;
                     preview.data = video_frame.p_data;
 
-                    cv::Mat key, fill;
+                    cv::Mat fill;
 
-                    key.create(cv::Size(video_frame.xres, video_frame.yres), CV_8UC1);
+                    cv::Mat key = cv::Mat::zeros(cv::Size(video_frame.xres, video_frame.yres), CV_8UC2);
+
+                    key.create(cv::Size(video_frame.xres, video_frame.yres), CV_8UC2);
 
                     fill.create(cv::Size(video_frame.xres, video_frame.yres), CV_8UC3);
                     
                     splitKeyandFill(preview, fill, key);
+
+                    
+                    //fillPort->SetRowBytes(preview.step);
+                    fillPort->AddFrame(preview.data, preview.step * preview.rows);
+                    fillPort->DisplayFrame();
+
+                    keyPort->AddFrame(key.data, key.step*key.rows);
+                    keyPort->DisplayFrame();
+
                 }
 
                 frames->push(video_frame);
@@ -299,9 +320,9 @@ private:
     {
         // assuming dstA and dstB are pre-allocated ... split the channels...
         cv::Mat out[] = { dstA, dstB };
-        int from_to[] = { 0,0, 1,1, 2,2, 3,3 };
+        int from_to[] = { 0,0, 1,1, 2,2, -1,3, 3,4, };
 
-        cv::mixChannels(&src, 1, out, 2, from_to, 4);
+        cv::mixChannels(&src, 1, out, 2, from_to, 5);
     }
 
 public:
@@ -344,6 +365,15 @@ public:
         connected = false;
         // disconnect first
         NDIlib_recv_connect(rec_instance, NULL);
+    }
+
+    void setKeyAndFillPorts(DeckLinkPort* f, DeckLinkPort* k)
+    {
+        this->keyPort = k;
+        this->fillPort = f;
+
+        this->keyPort->SetPixelFormat(bmdFormat8BitYUV);
+        this->fillPort->SetPixelFormat(bmdFormat8BitBGRA);
     }
 
     void connect(std::string s)
@@ -440,10 +470,16 @@ int main()
 {
     init();
 
+    DeckLinkCard* card = new DeckLinkCard();
+    DeckLinkPort* keyPort = card->SelectPort(1);
+    DeckLinkPort* fillPort = card->SelectPort(0);
+
     bool exit_flag = false;
     Discovery* discovery = new Discovery(&exit_flag);
 
     NDI_Recv* receiver = new NDI_Recv(&exit_flag, 0);
+
+    receiver->setKeyAndFillPorts(fillPort, keyPort);
 
     receiver->enableFillAndKey();
 

@@ -104,7 +104,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>C:\opencv\opencv\build\include;C:\Program Files\NDI\NDI 5 SDK\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\Chroma2\Downloads\Blackmagic DeckLink SDK 12.5.1\Win\include;C:\opencv\opencv\build\include;C:\Program Files\NDI\NDI 5 SDK\Include;C:\Users\Chroma2\source\repos\NDI_Obj;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -130,10 +130,15 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="DeckLinkAPI_i.c" />
     <ClCompile Include="NDI_Obj.cpp" />
+    <ClCompile Include="platform.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="common.hpp" />
+    <ClInclude Include="decklinkAPI.hpp" />
     <ClInclude Include="NDI_constants.hpp" />
+    <ClInclude Include="platform.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
