@@ -320,9 +320,9 @@ private:
     {
         // assuming dstA and dstB are pre-allocated ... split the channels...
         cv::Mat out[] = { dstA, dstB };
-        int from_to[] = { 0,0, 1,1, 2,2, -1,3, 3,4, };
+        int from_to[] = { 0,0, 1,1, 2,2, 3,4, };
 
-        cv::mixChannels(&src, 1, out, 2, from_to, 5);
+        cv::mixChannels(&src, 1, out, 2, from_to, 4);
     }
 
 public:
