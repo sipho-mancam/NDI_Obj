@@ -249,31 +249,31 @@ private:
             {
 #ifdef _DEBUG
                 
-              
+              /*  nFrame.AddFrame(&video_frame);
+                nFrame.printParams();*/
 #endif
                 if (fillAndKey)
                 {
                     preview.create(cv::Size(video_frame.xres, video_frame.yres), CV_8UC4);
                     preview.step = video_frame.line_stride_in_bytes;
-                    preview.data = video_frame.p_data;
+                    memcpy(preview.data , video_frame.p_data, video_frame.line_stride_in_bytes*video_frame.yres);
 
                     cv::Mat fill;
 
-                    cv::Mat key = cv::Mat::zeros(cv::Size(video_frame.xres, video_frame.yres), CV_8UC2);
-
-                    key.create(cv::Size(video_frame.xres, video_frame.yres), CV_8UC2);
-
-                    fill.create(cv::Size(video_frame.xres, video_frame.yres), CV_8UC3);
+                    cv::Mat key = cv::Mat::zeros(cv::Size(video_frame.xres, video_frame.yres), CV_8UC4);
                     
                     splitKeyandFill(preview, fill, key);
 
-                    //fillPort->SetRowBytes(preview.step);
                     fillPort->AddFrame(preview.data, preview.step * preview.rows);
                     fillPort->DisplayFrame();
 
                     keyPort->AddFrame(key.data, key.step*key.rows);
                     keyPort->DisplayFrame();
 
+
+                    preview.release();
+                    key.release();
+                    //fill.release();
                 }
 
                 frames->push(video_frame);
@@ -283,7 +283,7 @@ private:
                 NDIlib_recv_get_queue(rec_instance, &recv_queue);
                 if (recv_queue.video_frames > 2) {
                     // Display the frames per second
-                    //printf("Channel %d queue depth is %d.\n", channel, recv_queue.video_frames);
+                    printf("Channel %d queue depth is %d.\n", channel, recv_queue.video_frames);
                 }
 
                 if (frames->size() > delay)
@@ -316,10 +316,10 @@ private:
     void splitKeyandFill(cv::Mat& src, cv::Mat& dstA, cv::Mat& dstB /*This must be the alpha channel*/)
     {
         // assuming dstA and dstB are pre-allocated ... split the channels...
-        cv::Mat out[] = { dstA, dstB };
-        int from_to[] = { 0,0, 1,1, 2,2, 3,4, };
+        cv::Mat out[] = { dstB };
+        int from_to[] = { 3,0, 3,1, 3,2, 3,3 };
 
-        cv::mixChannels(&src, 1, out, 2, from_to, 4);
+        cv::mixChannels(&src, 1, out, 1, from_to, 1);
     }
 
 public:
@@ -369,7 +369,7 @@ public:
         this->keyPort = k;
         this->fillPort = f;
 
-        this->keyPort->SetPixelFormat(bmdFormat8BitYUV);
+        this->keyPort->SetPixelFormat(bmdFormat8BitBGRA);
         this->fillPort->SetPixelFormat(bmdFormat8BitBGRA);
     }
 
@@ -468,8 +468,13 @@ int main()
     init();
 
     DeckLinkCard* card = new DeckLinkCard();
-    DeckLinkPort* keyPort = card->SelectPort(1);
+
     DeckLinkPort* fillPort = card->SelectPort(0);
+    DeckLinkPort* keyPort = card->SelectPort(1);
+   
+
+    DeckLinkInputPort* inputPort = card->SelectInputPort(0);
+
 
     bool exit_flag = false;
     Discovery* discovery = new Discovery(&exit_flag);
@@ -526,6 +531,8 @@ int main()
 
                 receiver->start();
                 std::cin.clear();
+
+                inputPort->startCapture();
                 break;
             }
             

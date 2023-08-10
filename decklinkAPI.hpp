@@ -10,6 +10,7 @@
 #include <vector>
 #include <conio.h>
 #include <cassert>
+#include "DeckLinkDevice.h"
 
 #define CHECK_ERROR(result) \
                     if (result != S_OK)\
@@ -202,13 +203,12 @@ public:
 };
 
 class DeckLinkPort {
-private:
+protected:
     IDeckLink* port;
     bool isOutput;
     IDeckLinkOutput* output;
     IDeckLinkInput* input;
     HRESULT result;
-
     IDeckLinkDisplayModeIterator* displayModeIterator;
     IDeckLinkDisplayMode* displayMode;
     std::vector<IDeckLinkDisplayMode*> displayModes;
@@ -228,7 +228,6 @@ public:
         profileAttrib(nullptr), displayModesCount(0)
     {
         output = nullptr;
-        input = nullptr;
         assert(dev != nullptr);
         if (isOutput)
         {
@@ -250,10 +249,11 @@ public:
                 result = this->output->QueryInterface(IID_IDeckLinkProfileAttributes, (void**)&profileAttrib);
                 assert(result == S_OK);
             }
+
         }
-        else
-        {
-            result = port->QueryInterface(IID_IDeckLinkInput, (void**)&this->input);
+        else {
+            result = port->QueryInterface(IID_IDeckLinkOutput, (void**)&this->input);
+            checkError("Creating Output Device pointer...");
 
             if (result == S_OK)
             {
@@ -272,12 +272,15 @@ public:
             }
         }
 
-        selectedMode = 9;//40; // 1080p50 1920 x 1080 50 fps 
+        selectedMode = 40; //9; // 1080p50 1920 x 1080 50 fps 
         displayMode = displayModes[selectedMode];
 
         frame = new VideoFrameObj(displayMode->GetWidth(), displayMode->GetHeight(), pixelFormat);
 
         configure();
+       
+
+        
     }
 
     bool isOutputPort() { return this->isOutput; }
@@ -285,7 +288,6 @@ public:
     BMDPixelFormat GetPixelFormat() { return pixelFormat; }
     IDeckLink* _GetPortAddr() { return port; }
     IDeckLinkOutput* _GetOutputAddr() { return output; }
-    IDeckLinkInput* _GetInputAddr() { return input; }
     IDeckLinkDisplayMode* _GetDisplayModeAddr() { return displayMode; }
     VideoFrameObj* GetFrameObject() { return this->frame; }
 
@@ -377,10 +379,40 @@ public:
 
 };
 
+class DeckLinkInputPort : public DeckLinkPort {
+private:
+   
+    DeckLinkDevice* deckLinkCap;
+
+public:
+    DeckLinkInputPort(IDeckLink* dev) : DeckLinkPort(dev, false)
+    {
+        
+        deckLinkCap = new DeckLinkDevice(dev);
+
+        deckLinkCap->init();
+    }
+    ~DeckLinkInputPort()
+    {
+        deckLinkCap->stopCapture();
+        delete deckLinkCap;
+    }
+
+    void startCapture()
+    {
+        assert(deckLinkCap->startCapture(displayModes[selectedMode]->GetDisplayMode(), nullptr, true));
+    }
+
+    DeckLinkDevice* _getPort() { return this->deckLinkCap; }
+
+
+};
+
 class DeckLinkCard {
 private:
     IDeckLinkIterator* iterator;
     std::vector<DeckLinkPort*> ports;
+    std::vector<DeckLinkInputPort*> inputPorts;
     IDeckLink* port;
     HRESULT result;
     int sPort, selectedInport;
@@ -398,11 +430,20 @@ public:
         selectedInport = 0;
 
         if (result != S_OK) return;
-
+        bool flip =  true;
+        int count = 0;
         while (iterator->Next(&port) == S_OK)
         {
-            ports.push_back(new DeckLinkPort(port));
+            if (flip) {
+                ports.push_back(new DeckLinkPort(port));
+                count++;
+                if (count >= 2) flip = false;
+            }else{
+                inputPorts.push_back(new DeckLinkInputPort(port));
+            }
         }
+
+
 
         sPort = ports.size() - 1;
 
@@ -432,6 +473,13 @@ public:
             return selectedOutputPort;
         }
         return selectedOutputPort;
+    }
+
+    DeckLinkInputPort* SelectInputPort(int c)
+    {
+        if (c < 0 || c >= inputPorts.size())return nullptr;
+
+        return inputPorts[c];
     }
 
     ~DeckLinkCard()
