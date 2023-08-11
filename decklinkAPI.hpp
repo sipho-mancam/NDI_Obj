@@ -12,14 +12,13 @@
 #include <cassert>
 #include "DeckLinkDevice.h"
 #include <queue>
+#include <exception>
 
 #define CHECK_ERROR(result) \
                     if (result != S_OK)\
                     { \
                      std::cout << "There was an error"<< std::endl; \
                     }
-
-
 
 // List of known pixel formats and their matching display names
 static const std::list<std::pair<BMDPixelFormat, std::string>> gPixelFormats =
@@ -224,7 +223,8 @@ protected:
 
 
 public:
-    DeckLinkPort(IDeckLink* dev, bool o = true) :
+    // mode = 0 (HD) ... mode = 1 (UHD 4K)
+    DeckLinkPort(IDeckLink* dev, bool o = true, int mode = 0) :
         port(dev), isOutput(o), result(S_OK), displayMode(nullptr), displayModeIterator(nullptr), pixelFormat(bmdFormat10BitYUV),
         profileAttrib(nullptr), displayModesCount(0)
     {
@@ -273,15 +273,12 @@ public:
             }
         }
 
-        selectedMode = 40; //9; // 1080p50 1920 x 1080 50 fps 
+        selectedMode = mode == 1? 40 : 9; //9; // 1080p50 1920 x 1080 50 fps 
         displayMode = displayModes[selectedMode];
 
         frame = new VideoFrameObj(displayMode->GetWidth(), displayMode->GetHeight(), pixelFormat);
 
         configure();
-       
-
-        
     }
 
     bool isOutputPort() { return this->isOutput; }
@@ -456,6 +453,10 @@ public:
         deckLinkCap->stopCapture();
         delete deckLinkCap;
     }
+
+    void RegisterVideoCallback(FrameArrivedCallback* _cb) {
+        deckLinkCap->registerFrameArrivedCallback(_cb);
+    }
     
 
     void startCapture()
@@ -471,12 +472,26 @@ public:
 class DeckLinkCard {
 private:
     IDeckLinkIterator* iterator;
-    std::vector<DeckLinkPort*> ports;
-    std::vector<DeckLinkInputPort*> inputPorts;
+    std::unordered_map<int, DeckLinkPort*> ports;
+    std::unordered_map<int, DeckLinkInputPort*> inputPorts;
+
+    std::vector<IDeckLink*> unconfiguredPorts;
+
     IDeckLink* port;
     HRESULT result;
     int sPort, selectedInport;
     DeckLinkPort* selectedOutputPort;
+
+    std::vector<int> selectedPorts;
+
+    bool _selectedPort(int c)
+    {
+        for (int elem : selectedPorts)
+        {
+            if (elem == c) return true;
+        }
+        return false;
+    }
 
 public:
     DeckLinkCard()
@@ -490,24 +505,11 @@ public:
         selectedInport = 0;
 
         if (result != S_OK) return;
-        bool flip =  true;
-        int count = 0;
+
         while (iterator->Next(&port) == S_OK)
         {
-            if (flip) {
-                ports.push_back(new DeckLinkPort(port));
-                count++;
-                if (count >= 2) flip = false;
-            }else{
-                inputPorts.push_back(new DeckLinkInputPort(port));
-            }
+            unconfiguredPorts.push_back(port);
         }
-
-
-
-        sPort = (int) ports.size() - 1;
-
-        selectedOutputPort = ports[sPort];
 
         std::cout << "Decklink Device Initialized successfully ..." << std::endl;
     }
@@ -526,18 +528,48 @@ public:
     DeckLinkPort* GetCurrentPort() { return this->selectedOutputPort; }
     DeckLinkPort* SelectPort(int idx)
     {
-        if (idx >= 0 && idx < ports.size()) // Ports start counting from 1
+        if (idx >= 0 && idx < unconfiguredPorts.size()) // Ports start counting from 1
         {
-            sPort = idx;
-            selectedOutputPort = ports[sPort];
-            return selectedOutputPort;
+            if (!_selectedPort(idx))
+            {
+                DeckLinkPort* p = new DeckLinkPort(unconfiguredPorts[idx]);
+                ports[idx] = p;
+                selectedPorts.push_back(idx);
+                return p;
+            }
+            else {
+                // if it is selected, but it was already created ... just return it.
+                try {
+                    return ports.at(idx);
+                }
+                catch (std::out_of_range& e) {
+                    std::cerr << "Port Already selected as input port..." << std::endl;
+                    return nullptr;
+                }
+            }
+            
         }
-        return selectedOutputPort;
+        return nullptr;
     }
 
     DeckLinkInputPort* SelectInputPort(int c)
     {
-        if (c < 0 || c >= inputPorts.size())return nullptr;
+        if (c < 0 || c >= unconfiguredPorts.size())return nullptr;
+
+        if (!_selectedPort(c)) {
+            DeckLinkInputPort* p = new DeckLinkInputPort(unconfiguredPorts[c]);
+            inputPorts[c] = p;
+            selectedPorts.push_back(c);
+            return p;
+        }
+        else {
+            try {
+                return inputPorts.at(c);
+            }catch (std::out_of_range& or ) {
+                std::cerr << "Port already selected as output port" << std::endl;
+                return nullptr;
+            }
+        }
 
         return inputPorts[c];
     }
@@ -548,8 +580,16 @@ public:
 
         for (auto& dev : this->ports)
         {
-            delete dev;
+            delete dev.second;
         }
+
+        for (auto& dev : this->inputPorts)
+        {
+            delete dev.second;
+        }
+
+        this->ports.clear();
+        this->inputPorts.clear();
 
         CoUninitialize();
     }

@@ -478,11 +478,17 @@ int main()
 
     DeckLinkCard* card = new DeckLinkCard();
 
+    // this configures port 0 and 1 as output and gives you a handle to it
     DeckLinkPort* fillPort = card->SelectPort(0);
     DeckLinkPort* keyPort = card->SelectPort(1);
    
+    // this configures port 2 as input and gives you a handle to it.
+    DeckLinkInputPort* inputPort = card->SelectInputPort(2);
 
-    DeckLinkInputPort* inputPort = card->SelectInputPort(0);
+
+    assert(fillPort != nullptr);
+    assert(keyPort != nullptr);
+    assert(inputPort != nullptr);
 
     /*inputPort->startCapture();
 
