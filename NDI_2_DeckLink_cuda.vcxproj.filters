@@ -57,5 +57,13 @@
     <ClInclude Include="targetver.h">
       <Filter>HeaderFiles</Filter>
     </ClInclude>
+    <ClInclude Include="decklink_kernels.cuh">
+      <Filter>CudaHeaders</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <CudaCompile Include="decklink_kernels.cu">
+      <Filter>CudaSources</Filter>
+    </CudaCompile>
   </ItemGroup>
 </Project>

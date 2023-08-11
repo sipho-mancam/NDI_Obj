@@ -325,7 +325,14 @@ private:
 public:
 
     NDI_Recv(bool *controller, uint32_t c=-1, std::string s="")
-        : channel(c), source(s) , NDI_Obj(controller), receiver_thread(nullptr), frames(nullptr), delay(3), connected(false), fillAndKey(false)
+        : channel(c), source(s) , 
+        NDI_Obj(controller), 
+        receiver_thread(nullptr), 
+        frames(nullptr), 
+        delay(3), 
+        connected(false), 
+        fillAndKey(false),
+        running(false)
     {
         if (channel == -1)
             channel = id+10;

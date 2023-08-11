@@ -14,6 +14,7 @@
     <ClInclude Include="common.hpp" />
     <ClInclude Include="decklinkAPI.hpp" />
     <ClInclude Include="DeckLinkDevice.h" />
+    <ClInclude Include="decklink_kernels.cuh" />
     <ClInclude Include="NDI_constants.hpp" />
     <ClInclude Include="platform.h" />
     <ClInclude Include="stdafx.h" />
@@ -25,6 +26,9 @@
     <ClCompile Include="NDI_Obj.cpp" />
     <ClCompile Include="platform.cpp" />
     <ClCompile Include="stdafx.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <CudaCompile Include="decklink_kernels.cu" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{85336C40-AC3B-4B23-AF08-6D4303D9BA4C}</ProjectGuid>
@@ -73,6 +77,8 @@
     </Link>
     <CudaCompile>
       <TargetMachinePlatform>64</TargetMachinePlatform>
+      <GenerateRelocatableDeviceCode>false</GenerateRelocatableDeviceCode>
+      <ExtensibleWholeProgramCompilation>false</ExtensibleWholeProgramCompilation>
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
