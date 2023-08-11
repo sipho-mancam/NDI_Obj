@@ -475,6 +475,9 @@ int main()
 
     DeckLinkInputPort* inputPort = card->SelectInputPort(0);
 
+    /*inputPort->startCapture();
+
+    while (true);*/
 
     bool exit_flag = false;
     Discovery* discovery = new Discovery(&exit_flag);

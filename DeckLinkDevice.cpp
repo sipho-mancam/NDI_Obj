@@ -47,15 +47,16 @@
 #include <iostream>
 
 
-DeckLinkDevice::DeckLinkDevice(IDeckLink* device) : 
-	m_refCount(1), 
-	m_deckLink(device), 
-	m_deckLinkInput(nullptr), 
-	m_deckLinkConfig(nullptr),	
-	m_deckLinkHDMIInputEDID(nullptr), 
+DeckLinkDevice::DeckLinkDevice(IDeckLink* device) :
+	m_refCount(1),
+	m_deckLink(device),
+	m_deckLinkInput(nullptr),
+	m_deckLinkConfig(nullptr),
+	m_deckLinkHDMIInputEDID(nullptr),
 	m_supportsFormatDetection(false),
 	m_currentlyCapturing(false),
-	m_applyDetectedInputMode(false)
+	m_applyDetectedInputMode(false),
+	m_frameArrivedCallback(nullptr)
 {
 }
 
@@ -299,9 +300,9 @@ HRESULT DeckLinkDevice::VideoInputFrameArrived(IDeckLinkVideoInputFrame* videoFr
 	if ((videoFrame != nullptr))
 	{
 		// do some video processing logic here ...
-		std::cout << "Decklink Frame Arrived" << std::endl;
-		//CComPtr<IDeckLinkVideoInputFrame> inputFrame = videoFrame;
-		/*m_videoFrameArrivedCallback(videoFrame);*/
+		if (m_frameArrivedCallback != nullptr) {
+			m_frameArrivedCallback->arrived(videoFrame);
+		}
 	}
 
 	return S_OK;

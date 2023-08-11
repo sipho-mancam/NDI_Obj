@@ -11,6 +11,7 @@
 #include <conio.h>
 #include <cassert>
 #include "DeckLinkDevice.h"
+#include <queue>
 
 #define CHECK_ERROR(result) \
                     if (result != S_OK)\
@@ -379,24 +380,66 @@ public:
 
 };
 
+
+class VideoFrameCallback : public FrameArrivedCallback {
+private:
+    std::queue<IDeckLinkVideoInputFrame*> frames_queue;
+
+public:
+    // This is called on a seperate thread ...
+    void arrived(IDeckLinkVideoInputFrame * frame) override {
+        //std::cout << frame->GetWidth() << std::endl;
+        frames_queue.push(frame);
+    }
+
+    // queue management 
+    void clearAll()
+    {
+        while (!frames_queue.empty())
+            frames_queue.pop();
+    }
+    IDeckLinkVideoInputFrame* getFrame()
+    {
+        IDeckLinkVideoInputFrame* temp = frames_queue.front();
+        frames_queue.pop();
+        return temp;
+    }
+
+    IDeckLinkVideoInputFrame* getFrameNoPop()
+    {
+        return frames_queue.front();
+    }
+
+    size_t queueSize() const { return frames_queue.size(); }
+    void popTop() { frames_queue.pop(); }
+    bool empty() const { return frames_queue.empty(); }
+
+
+
+};
+
 class DeckLinkInputPort : public DeckLinkPort {
 private:
    
     DeckLinkDevice* deckLinkCap;
+    VideoFrameCallback* callback;
 
 public:
     DeckLinkInputPort(IDeckLink* dev) : DeckLinkPort(dev, false)
     {
-        
+        callback = new VideoFrameCallback();
         deckLinkCap = new DeckLinkDevice(dev);
 
         deckLinkCap->init();
+
+        deckLinkCap->registerFrameArrivedCallback(callback);
     }
     ~DeckLinkInputPort()
     {
         deckLinkCap->stopCapture();
         delete deckLinkCap;
     }
+    
 
     void startCapture()
     {

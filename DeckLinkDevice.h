@@ -54,6 +54,12 @@ enum class DeviceError
 	ReenableVideoInputFailed,
 };
 
+class FrameArrivedCallback
+{
+public:
+	virtual void arrived(IDeckLinkVideoInputFrame* frame) = 0;
+};
+
 class DeckLinkDevice : public IDeckLinkInputCallback
 {
 	using QueryDisplayModeFunc = std::function<void(IDeckLinkDisplayMode*)>;
@@ -80,6 +86,8 @@ public:
 	void								onVideoFormatChange(const VideoFormatChangedCallback& callback) { m_videoFormatChangedCallback = callback; }
 	void								onVideoFrameArrival(const VideoFrameArrivedCallback& callback) { m_videoFrameArrivedCallback = callback; }
 
+	void								registerFrameArrivedCallback(FrameArrivedCallback* cb) { m_frameArrivedCallback = cb; }
+
 	// IUnknown interface
 	HRESULT	STDMETHODCALLTYPE	QueryInterface(REFIID iid, LPVOID *ppv) override;
 	ULONG	STDMETHODCALLTYPE	AddRef() override;
@@ -105,4 +113,6 @@ private:
 	DeviceErrorOccuredFunc				m_errorListener;
 	VideoFormatChangedCallback			m_videoFormatChangedCallback;
 	VideoFrameArrivedCallback			m_videoFrameArrivedCallback;
+
+	FrameArrivedCallback*				m_frameArrivedCallback;
 };
