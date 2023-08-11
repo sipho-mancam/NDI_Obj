@@ -54,4 +54,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
+  <ItemGroup>
+    <None Include="decklink.cuh">
+      <Filter>Header Files</Filter>
+    </None>
+    <None Include="decklink_kernels.cu">
+      <Filter>Source Files</Filter>
+    </None>
+  </ItemGroup>
 </Project>

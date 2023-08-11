@@ -79,10 +79,10 @@ const auto StdToDlString = [](std::string std_str) -> dlstring_t {
 
 const auto DlToCString = _com_util::ConvertBSTRToString;
 
-const auto IsPathDirectory = [](std::string std_str) -> bool {
-	dlstring_t dl_str = StdToDlString(std_str);
-	LPCWSTR dl_wstr = dl_str ? dl_str : L"";
-	return (PathIsDirectory(dl_wstr) != FALSE);
-};
+//const auto IsPathDirectory = [](std::string std_str) -> bool {
+//	dlstring_t dl_str = StdToDlString(std_str);
+//	LPCWSTR dl_wstr = dl_str ? dl_str : L"";
+//	return (PathIsDirectory(dl_wstr) != FALSE);
+//};
 
 

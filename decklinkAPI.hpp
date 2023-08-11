@@ -384,12 +384,25 @@ public:
 class VideoFrameCallback : public FrameArrivedCallback {
 private:
     std::queue<IDeckLinkVideoInputFrame*> frames_queue;
-
+    bool droppedFrames;
+    int maxFrameCount;
 public:
+
+    VideoFrameCallback(int mFrameCount = 5) : 
+        maxFrameCount(mFrameCount) ,
+        droppedFrames(false)
+    {}
     // This is called on a seperate thread ...
     void arrived(IDeckLinkVideoInputFrame * frame) override {
         //std::cout << frame->GetWidth() << std::endl;
         frames_queue.push(frame);
+        if (frames_queue.size() > maxFrameCount)
+        {
+            frames_queue.pop();
+            droppedFrames = true;
+            return;
+        }
+        droppedFrames = false;
     }
 
     // queue management 
@@ -400,6 +413,7 @@ public:
     }
     IDeckLinkVideoInputFrame* getFrame()
     {
+        if (frames_queue.empty()) return nullptr;
         IDeckLinkVideoInputFrame* temp = frames_queue.front();
         frames_queue.pop();
         return temp;
@@ -407,12 +421,15 @@ public:
 
     IDeckLinkVideoInputFrame* getFrameNoPop()
     {
+        if (frames_queue.empty()) return nullptr;
         return frames_queue.front();
     }
 
     size_t queueSize() const { return frames_queue.size(); }
     void popTop() { frames_queue.pop(); }
     bool empty() const { return frames_queue.empty(); }
+    bool frameDropped() { return droppedFrames; }
+    bool overflow() { return frames_queue.size() == maxFrameCount; }
 
 
 
@@ -488,7 +505,7 @@ public:
 
 
 
-        sPort = ports.size() - 1;
+        sPort = (int) ports.size() - 1;
 
         selectedOutputPort = ports[sPort];
 

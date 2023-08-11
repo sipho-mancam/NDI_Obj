@@ -1,0 +1,61 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="HeaderFiles">
+      <UniqueIdentifier>{674fa049-fdd1-4afa-b379-d2839ca7d18a}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="Source">
+      <UniqueIdentifier>{7da1680b-547b-4944-ae92-993fb1ed6cea}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="CudaHeaders">
+      <UniqueIdentifier>{e2d4a00b-3b91-451c-82ab-349037371ea5}</UniqueIdentifier>
+      <Extensions>.cuh</Extensions>
+    </Filter>
+    <Filter Include="CudaSources">
+      <UniqueIdentifier>{c9a7266e-7f83-4542-a6ab-3e774afc7863}</UniqueIdentifier>
+      <Extensions>.cu</Extensions>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="DeckLinkAPI_i.c">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="DeckLinkDevice.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="NDI_Obj.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="platform.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="stdafx.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="common.hpp">
+      <Filter>HeaderFiles</Filter>
+    </ClInclude>
+    <ClInclude Include="decklinkAPI.hpp">
+      <Filter>HeaderFiles</Filter>
+    </ClInclude>
+    <ClInclude Include="DeckLinkDevice.h">
+      <Filter>HeaderFiles</Filter>
+    </ClInclude>
+    <ClInclude Include="NDI_constants.hpp">
+      <Filter>HeaderFiles</Filter>
+    </ClInclude>
+    <ClInclude Include="platform.h">
+      <Filter>HeaderFiles</Filter>
+    </ClInclude>
+    <ClInclude Include="stdafx.h">
+      <Filter>HeaderFiles</Filter>
+    </ClInclude>
+    <ClInclude Include="targetver.h">
+      <Filter>HeaderFiles</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>
