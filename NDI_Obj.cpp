@@ -332,7 +332,9 @@ public:
         delay(3), 
         connected(false), 
         fillAndKey(false),
-        running(false)
+        running(false),
+        fillPort(nullptr),
+        keyPort(nullptr)
     {
         if (channel == -1)
             channel = id+10;
