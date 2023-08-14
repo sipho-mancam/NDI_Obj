@@ -256,11 +256,16 @@ private:
 #endif
                 if (fillAndKey)
                 {
+                    uint* yuvFill;
+                    uchar* gBgra;
+
+                    gBgra = get_yuv_from_bgr_packed(video_frame.xres, video_frame.yres, video_frame.p_data, &yuvFill);
+
                     uchar* alpha_channel;
-                    get_alpha_channel(video_frame.xres, video_frame.yres, video_frame.p_data, &alpha_channel);
+                    get_alpha_channel_gpu(video_frame.xres, video_frame.yres, video_frame.p_data, &alpha_channel);
 
                     uint* key_packed;
-                    alpha_2_decklink(video_frame.xres, video_frame.yres, alpha_channel, &key_packed);
+                    alpha_2_decklink_gpu(video_frame.xres, video_frame.yres, alpha_channel, &key_packed); 
 
                     fillPort->AddFrame(video_frame.p_data, video_frame.yres * video_frame.line_stride_in_bytes);
                     fillPort->DisplayFrame();
@@ -269,7 +274,6 @@ private:
                     keyPort->DisplayFrame();
 
                     cudaFreeHost(key_packed);
-                    cudaFreeHost(alpha_channel);
                 }
 
                 frames->push(video_frame);
@@ -374,7 +378,7 @@ public:
         this->fillPort = f;
 
         this->keyPort->SetPixelFormat(bmdFormat8BitYUV);
-        this->fillPort->SetPixelFormat(bmdFormat8BitBGRA);
+        this->fillPort->SetPixelFormat(bmdFormat8BitYUV);
     }
 
     void connect(std::string s)

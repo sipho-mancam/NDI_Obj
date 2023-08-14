@@ -279,7 +279,7 @@ public:
             }
         }
 
-        selectedMode = mode == 1? 40 : 9; //9; // 1080p50 1920 x 1080 50 fps 
+        selectedMode = mode == 1? 45 : 9; //9; // 1080p50 1920 x 1080 50 fps 
         displayMode = displayModes[selectedMode];
 
         frame = new VideoFrameObj(displayMode->GetWidth(), displayMode->GetHeight(), pixelFormat);
@@ -489,9 +489,6 @@ public:
     bool empty() const { return frames_queue.empty(); }
     bool frameDropped() { return droppedFrames; }
     bool overflow() { return frames_queue.size() == maxFrameCount; }
-
-
-
 };
 
 class DeckLinkInputPort : public DeckLinkPort {
@@ -588,13 +585,13 @@ public:
     }
 
     DeckLinkPort* GetCurrentPort() { return this->selectedOutputPort; }
-    DeckLinkPort* SelectPort(int idx)
+    DeckLinkPort* SelectPort(int idx, int mode = 1)
     {
         if (idx >= 0 && idx < unconfiguredPorts.size()) // Ports start counting from 1
         {
             if (!_selectedPort(idx))
             {
-                DeckLinkPort* p = new DeckLinkPort(unconfiguredPorts[idx]);
+                DeckLinkPort* p = new DeckLinkPort(unconfiguredPorts[idx], true, mode);
                 ports[idx] = p;
                 selectedPorts.push_back(idx);
                 return p;
