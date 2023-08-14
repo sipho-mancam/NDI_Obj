@@ -38,6 +38,8 @@
 #include "common.hpp"
 #include "decklinkAPI.hpp"
 
+#include "decklink_kernels.cuh"
+
 
 static uint32_t ids = 0;
 
@@ -254,26 +256,20 @@ private:
 #endif
                 if (fillAndKey)
                 {
-                    preview.create(cv::Size(video_frame.xres, video_frame.yres), CV_8UC4);
-                    preview.step = video_frame.line_stride_in_bytes;
-                    memcpy(preview.data , video_frame.p_data, video_frame.line_stride_in_bytes*video_frame.yres);
+                    uchar* alpha_channel;
+                    get_alpha_channel(video_frame.xres, video_frame.yres, video_frame.p_data, &alpha_channel);
 
-                    cv::Mat fill;
+                    uint* key_packed;
+                    alpha_2_decklink(video_frame.xres, video_frame.yres, alpha_channel, &key_packed);
 
-                    cv::Mat key = cv::Mat::zeros(cv::Size(video_frame.xres, video_frame.yres), CV_8UC4);
-                    
-                    splitKeyandFill(preview, fill, key);
-
-                    fillPort->AddFrame(preview.data, preview.step * preview.rows);
+                    fillPort->AddFrame(video_frame.p_data, video_frame.yres * video_frame.line_stride_in_bytes);
                     fillPort->DisplayFrame();
 
-                    keyPort->AddFrame(key.data, key.step*key.rows);
+                    keyPort->AddFrame(key_packed, sizeof(uint)*(video_frame.xres/2)*(video_frame.yres));
                     keyPort->DisplayFrame();
 
-
-                    preview.release();
-                    key.release();
-                    //fill.release();
+                    cudaFreeHost(key_packed);
+                    cudaFreeHost(alpha_channel);
                 }
 
                 frames->push(video_frame);
@@ -317,8 +313,7 @@ private:
     {
         // assuming dstA and dstB are pre-allocated ... split the channels...
         cv::Mat out[] = { dstB };
-        int from_to[] = { 3,0, 3,1, 3,2, 3,3 };
-
+        int from_to[] = { 3,0 };
         cv::mixChannels(&src, 1, out, 1, from_to, 1);
     }
 
@@ -378,7 +373,7 @@ public:
         this->keyPort = k;
         this->fillPort = f;
 
-        this->keyPort->SetPixelFormat(bmdFormat8BitBGRA);
+        this->keyPort->SetPixelFormat(bmdFormat8BitYUV);
         this->fillPort->SetPixelFormat(bmdFormat8BitBGRA);
     }
 

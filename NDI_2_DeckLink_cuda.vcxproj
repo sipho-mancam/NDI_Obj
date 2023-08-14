@@ -28,6 +28,7 @@
     <ClCompile Include="stdafx.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <CudaCompile Include="decklinkAPI.cu" />
     <CudaCompile Include="decklink_kernels.cu" />
   </ItemGroup>
   <PropertyGroup Label="Globals">

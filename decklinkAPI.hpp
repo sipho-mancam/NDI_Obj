@@ -13,6 +13,12 @@
 #include "DeckLinkDevice.h"
 #include <queue>
 #include <exception>
+#include <unordered_map>
+
+#include "cuda_runtime_api.h"
+#include "device_launch_parameters.h"
+
+//#include "decklink_kernels.cuh"
 
 #define CHECK_ERROR(result) \
                     if (result != S_OK)\
@@ -381,17 +387,70 @@ public:
 class VideoFrameCallback : public FrameArrivedCallback {
 private:
     std::queue<IDeckLinkVideoInputFrame*> frames_queue;
-    bool droppedFrames;
+    bool droppedFrames, init;
     int maxFrameCount;
+    uint32_t* pinnedMemory;
+    uint32_t* gpuMemory;
+    uint4* dst_4;
+    uint* dst_full;
+    unsigned char* buffer;
+
+    unsigned int width, height;
+
 public:
 
     VideoFrameCallback(int mFrameCount = 5) : 
         maxFrameCount(mFrameCount) ,
-        droppedFrames(false)
-    {}
+        droppedFrames(false),
+        init(false),
+        pinnedMemory(nullptr),
+        gpuMemory(nullptr),
+        height(0), width(0),
+        dst_4(nullptr), dst_full(nullptr), buffer(NULL)
+
+    {
+    
+    }
     // This is called on a seperate thread ...
     void arrived(IDeckLinkVideoInputFrame * frame) override {
         //std::cout << frame->GetWidth() << std::endl;
+
+        if (pinnedMemory == nullptr)
+        {
+            assert(cudaSuccess==cudaMallocHost((void**)&pinnedMemory, frame->GetRowBytes()*frame->GetHeight()));
+            assert(cudaSuccess==cudaMalloc((void**)&gpuMemory, frame->GetRowBytes() * frame->GetHeight()));
+
+            // this assumes we are receiving YUV data at 10bits.
+            switch (frame->GetPixelFormat())
+            {
+            case bmdFormat10BitYUV:
+            {
+                assert(cudaSuccess == cudaMalloc((void**)&dst_4, frame->GetHeight() * (frame->GetWidth() / 2) * sizeof(uint4)));
+                assert(cudaSuccess == cudaMalloc((void**)&dst_full, frame->GetHeight() * frame->GetWidth() * sizeof(uint)));
+                
+                break;
+            }
+            }  
+        }
+      
+        width = frame->GetWidth();
+        height = frame->GetHeight();
+
+        frame->GetBytes((void**)&buffer);
+        memcpy(pinnedMemory, buffer, frame->GetRowBytes() * frame->GetHeight());
+        assert(cudaSuccess == cudaMemcpy(gpuMemory, pinnedMemory, frame->GetRowBytes() * frame->GetHeight(), cudaMemcpyHostToDevice));
+
+        switch (frame->GetPixelFormat())
+        {
+        case bmdFormat10BitYUV:
+        {
+            std::cout << "10bit YUV data" << std::endl;
+            _getch();
+            this->unpack_10bit_yuv();
+            break;
+        }
+        }
+
         frames_queue.push(frame);
         if (frames_queue.size() > maxFrameCount)
         {
@@ -401,6 +460,9 @@ public:
         }
         droppedFrames = false;
     }
+
+    void unpack_10bit_yuv();
+
 
     // queue management 
     void clearAll()

@@ -65,5 +65,8 @@
     <CudaCompile Include="decklink_kernels.cu">
       <Filter>CudaSources</Filter>
     </CudaCompile>
+    <CudaCompile Include="decklinkAPI.cu">
+      <Filter>Source</Filter>
+    </CudaCompile>
   </ItemGroup>
 </Project>
