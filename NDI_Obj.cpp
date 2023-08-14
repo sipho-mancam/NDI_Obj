@@ -267,6 +267,7 @@ private:
                     alpha_2_decklink_gpu(video_frame.xres, video_frame.yres, alpha_channel, &key_packed); 
 
                     fillPort->AddFrame(yuvFill, sizeof(uint) * (video_frame.xres / 2) * (video_frame.yres));
+                    //fillPort->AddFrame(video_frame.p_data, video_frame.line_stride_in_bytes*video_frame.yres);
                     fillPort->DisplayFrame();
 
                     keyPort->AddFrame(key_packed, sizeof(uint)*(video_frame.xres/2)*(video_frame.yres));
@@ -379,6 +380,7 @@ public:
 
         this->keyPort->SetPixelFormat(bmdFormat8BitYUV);
         this->fillPort->SetPixelFormat(bmdFormat8BitYUV);
+        //this->fillPort->SetPixelFormat(bmdFormat8BitBGRA);
     }
 
     void connect(std::string s)
