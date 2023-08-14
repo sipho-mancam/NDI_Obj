@@ -296,26 +296,19 @@ void get_alpha_channel(long width, long height, uchar* bgra, uchar** alpha_out)
 }
 
 
-void get_alpha_channel_gpu(long width, long height, uchar* bgra, uchar** alpha_out)
+void get_alpha_channel_gpu(long width, long height, uchar* bgra /*GPU buffer*/, uchar** alpha_out)
 {
 	cudaError_t cudaStatus;
 	const dim3 block(16, 16); // 256 threads per block..
 	const dim3 grid(width / block.x, height / block.y);
 
-	uchar* in_gpu_buf; // bgra pinned and gpu buffers
-	uchar* pinned_alpha, * out_alpha;
-
-	size_t bgra_size = width * height * 4;
-	size_t alpha_size = width * height * 1;
-
-	assert(cudaSuccess == cudaMalloc((void**)&in_gpu_buf, bgra_size));
-	assert(cudaSuccess == cudaMemcpy(in_gpu_buf, bgra, bgra_size, cudaMemcpyHostToDevice));
-	// BGRA data is now in device memory. ...
+	uchar * out_alpha;
+	size_t alpha_size = width * height;
 
 	assert(cudaSuccess == cudaMalloc((void**)&out_alpha, alpha_size));
 
 	bgra_2_alpha << <grid, block >> > (
-		in_gpu_buf,
+		bgra,
 		out_alpha,
 		width, height
 		);
@@ -326,7 +319,8 @@ void get_alpha_channel_gpu(long width, long height, uchar* bgra, uchar** alpha_o
 
 	*alpha_out = out_alpha;
 
-	cudaFree(in_gpu_buf);
+	//cudaFree(in_gpu_buf);
+	cudaFree(bgra);
 
 }
 
@@ -410,10 +404,10 @@ __global__ void bgr_2_8bityuv_packed(uchar* bgra, uint* dst, long width, long he
 
 	// convert to YUV color space ....
 	Y0 = 0.299 * R1 + 0.587 * G1 + 0.114 * B1;
-	Cb = -0.299 * R1 + -0.587 * G1 + 0.886 * B1;
+	Cb = -1 * 0.299 * R1 - 0.587 * G1 + 0.886 * B1;
 
 	Y1 = 0.299 * R2 + 0.587 * G2 + 0.114 * B2;
-	Cr = 0.701 * R2 + -0.587 * G2 + -0.114 * B2;
+	Cr = 0.701 * R1 - 0.587 * G1 - 0.114 * B1;
 
 	// pack it for decklink ....
 	dst[y * dstWidth + x] |= (uint)(Y1 << 24);

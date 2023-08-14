@@ -258,22 +258,22 @@ private:
                 {
                     uint* yuvFill;
                     uchar* gBgra;
-
                     gBgra = get_yuv_from_bgr_packed(video_frame.xres, video_frame.yres, video_frame.p_data, &yuvFill);
 
                     uchar* alpha_channel;
-                    get_alpha_channel_gpu(video_frame.xres, video_frame.yres, video_frame.p_data, &alpha_channel);
+                    get_alpha_channel_gpu(video_frame.xres, video_frame.yres, gBgra, &alpha_channel);
 
                     uint* key_packed;
                     alpha_2_decklink_gpu(video_frame.xres, video_frame.yres, alpha_channel, &key_packed); 
 
-                    fillPort->AddFrame(video_frame.p_data, video_frame.yres * video_frame.line_stride_in_bytes);
+                    fillPort->AddFrame(yuvFill, sizeof(uint) * (video_frame.xres / 2) * (video_frame.yres));
                     fillPort->DisplayFrame();
 
                     keyPort->AddFrame(key_packed, sizeof(uint)*(video_frame.xres/2)*(video_frame.yres));
                     keyPort->DisplayFrame();
 
                     cudaFreeHost(key_packed);
+                    cudaFreeHost(yuvFill);
                 }
 
                 frames->push(video_frame);
