@@ -77,7 +77,7 @@ protected:
     bool *exit;
     uint32_t timeout;
 public:
-    NDI_Obj(bool* ex = nullptr) : exit(ex), id(-1), timeout(100) { id = idGene(); }
+    NDI_Obj(bool* ex = nullptr) : exit(ex), id(-1), timeout(50) { id = idGene(); }
     virtual uint32_t getID() { return id; }
     virtual void run() = 0;
 };
@@ -206,10 +206,6 @@ public:
 };
 
 
-
-
-
-
 class NDI_Recv : public NDI_Obj {
 private:
     std::string source;
@@ -267,11 +263,8 @@ private:
                     alpha_2_decklink_gpu(video_frame.xres, video_frame.yres, alpha_channel, &key_packed); 
 
                     fillPort->AddFrame(yuvFill, sizeof(uint) * (video_frame.xres / 2) * (video_frame.yres));
-                    //fillPort->AddFrame(video_frame.p_data, video_frame.line_stride_in_bytes*video_frame.yres);
-                    fillPort->DisplayFrame();
-
+                    
                     keyPort->AddFrame(key_packed, sizeof(uint)*(video_frame.xres/2)*(video_frame.yres));
-                    keyPort->DisplayFrame();
 
                     cudaFreeHost(key_packed);
                     cudaFreeHost(yuvFill);
@@ -456,6 +449,126 @@ public:
 };
 
 
+class NDI_Sender : public NDI_Obj {
+private:
+    NDIlib_send_instance_t sender;
+    NDIlib_send_create_t desc;
+    NDIlib_video_frame_v2_t NDI_video_frame_10bit;
+    std::queue<IDeckLinkVideoFrame*> frames_q;
+    std::thread* p_worker;
+    bool init_d, running;
+    NDIlib_video_frame_v2_t NDI_video_frame_16bit;
+    std::mutex mtx;
+public:
+
+    NDI_Sender(bool* controller, std::string source = "")
+        : NDI_Obj(controller), sender(NULL), p_worker(nullptr), init_d(false), running(false)
+    {
+        desc.clock_video = true;
+        desc.p_ndi_name = "Decklink_Viz_bridge";
+        desc.p_groups = NULL;
+
+        sender = NDIlib_send_create(&desc);
+
+        assert(sender != NULL);
+    }
+
+    void start()
+    {
+        if (p_worker)
+            delete p_worker;
+        p_worker = new std::thread(&NDI_Sender::run, this);
+        if(p_worker)
+            running = true;
+    }
+
+    void stop()
+    {
+        running = false;
+        if (p_worker)
+        {
+            p_worker->join();
+            delete p_worker;
+            p_worker = nullptr;
+        }
+    }
+
+    void AddFrame(IDeckLinkVideoFrame* frame)
+    {
+        frames_q.push(frame);
+    }
+
+    void generateFrame(IDeckLinkVideoFrame* frame)
+    {
+        if (!init_d || NDI_video_frame_10bit.xres != frame->GetWidth()) // resolution isn't set or it changed ...
+        {
+            NDI_video_frame_10bit.xres = frame->GetWidth();
+            NDI_video_frame_10bit.yres = frame->GetHeight();
+            NDI_video_frame_10bit.FourCC = (NDIlib_FourCC_video_type_e)NDI_LIB_FOURCC('V', '2', '1', '0');
+            NDI_video_frame_10bit.line_stride_in_bytes = frame->GetRowBytes();
+            NDI_video_frame_10bit.frame_rate_N = 50000;
+            NDI_video_frame_10bit.frame_rate_D = 1000;
+            NDI_video_frame_10bit.frame_format_type = NDIlib_frame_format_type_progressive;
+            NDI_video_frame_10bit.picture_aspect_ratio = 16.0f / 9.0f;
+            NDI_video_frame_10bit.timecode = NDIlib_send_timecode_synthesize;
+
+            uchar* buf;
+            frame->GetBytes((void**) & buf);
+            NDI_video_frame_10bit.p_data = (uint8_t*)malloc(frame->GetRowBytes() * frame->GetHeight());
+            memcpy(NDI_video_frame_10bit.p_data, buf, static_cast<size_t>(frame->GetRowBytes()) * frame->GetHeight());
+
+            NDI_video_frame_16bit.xres = NDI_video_frame_10bit.xres;
+            NDI_video_frame_16bit.yres = NDI_video_frame_10bit.yres;
+
+            NDI_video_frame_16bit.line_stride_in_bytes = NDI_video_frame_16bit.xres * sizeof(uint16_t);
+            NDI_video_frame_16bit.p_data = (uint8_t*)malloc(NDI_video_frame_16bit.line_stride_in_bytes * 2 * NDI_video_frame_16bit.yres);
+
+            // Convert into the destination
+            NDIlib_util_V210_to_P216(&NDI_video_frame_10bit, &NDI_video_frame_16bit);
+
+            init_d = true;
+        }
+        else {
+
+            uchar* buf;
+            frame->GetBytes((void**)&buf);
+            memcpy(NDI_video_frame_10bit.p_data, buf, static_cast<size_t>(frame->GetRowBytes()) * frame->GetHeight());
+            NDIlib_util_V210_to_P216(&NDI_video_frame_10bit, &NDI_video_frame_16bit);
+
+            frame->Release();
+        }
+    }
+
+    void update_frame()
+    {
+        if (frames_q.empty())
+        {
+            generateFrame(frames_q.front());
+            std::lock_guard<std::mutex> lock(mtx);
+            frames_q.pop();
+        }
+    }
+
+    bool isRunning() { return running; }
+
+    void run() override
+    {
+        while (!this->exit && running)
+        {
+            update_frame();
+            NDIlib_send_send_video_v2(sender, &NDI_video_frame_16bit);
+        }
+    }
+
+    ~NDI_Sender()
+    {
+        this->stop();
+        // free some other buffers here
+        NDIlib_send_destroy(sender);
+    }
+};
+
+
 void init()
 {
     if (NDIlib_is_supported_CPU()) {
@@ -484,21 +597,24 @@ int main()
     DeckLinkPort* keyPort = card->SelectPort(1);
    
     // this configures port 2 as input and gives you a handle to it.
-    DeckLinkInputPort* inputPort = card->SelectInputPort(2);
+    // ports are zero indexed.
+    DeckLinkInputPort* inputPort = card->SelectInputPort(3);
 
 
     assert(fillPort != nullptr);
     assert(keyPort != nullptr);
     assert(inputPort != nullptr);
 
-    /*inputPort->startCapture();
+    inputPort->startCapture();
 
-    while (true);*/
+    //while (true);
 
     bool exit_flag = false;
     Discovery* discovery = new Discovery(&exit_flag);
 
     NDI_Recv* receiver = new NDI_Recv(&exit_flag, 0);
+
+    NDI_Sender* sender = new NDI_Sender(&exit_flag, "");
 
     receiver->setKeyAndFillPorts(fillPort, keyPort);
 
@@ -571,7 +687,9 @@ int main()
     }
 
     delete discovery;
-
+    delete receiver;
+    delete sender;
+    delete card;
     
 
     clean_up();

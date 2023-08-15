@@ -14,6 +14,7 @@
 #include <queue>
 #include <exception>
 #include <unordered_map>
+#include <mutex>
 
 #include "cuda_runtime_api.h"
 #include "device_launch_parameters.h"
@@ -208,6 +209,119 @@ public:
 
 };
 
+class DeckLinkPlaybackCallback : public IDeckLinkVideoOutputCallback {
+private:
+    std::queue<IDeckLinkVideoFrame*> frames_q;
+    HRESULT result;
+    IDeckLinkOutput* m_port;
+    int count;
+    BMDTimeValue timeValue, f_duration;
+    BMDTimeScale scale;
+    long long frames_count;
+    std::mutex m_mutex;
+public:
+
+    DeckLinkPlaybackCallback(IDeckLinkOutput* dev)
+        : m_port(dev),
+        result(S_OK), count(0), scale(50000), f_duration(1000), frames_count(0), timeValue(0)
+    {}
+    HRESULT ScheduledFrameCompleted(IDeckLinkVideoFrame* completedFrame, BMDOutputFrameCompletionResult result) override
+    {
+        timeValue += f_duration;
+        BMDTimeValue frameCompletionTimestamp;
+
+        if (completedFrame)
+        {
+            if (m_port->GetFrameCompletionReferenceTimestamp(completedFrame, scale, &frameCompletionTimestamp) == S_OK)
+            {
+                std::lock_guard<std::mutex> lock(m_mutex);
+
+            }
+        }
+
+        if (!frames_q.empty())
+        {
+            m_port->ScheduleVideoFrame(frames_q.front(), timeValue, f_duration, scale);
+            frames_q.pop();
+        }
+        std::cout << frames_q.size() << std::endl;
+
+        return S_OK;
+    }
+
+    void addFrame(IDeckLinkVideoFrame* frame)
+    {
+        frames_q.push(frame);
+    }
+
+    HRESULT ScheduledPlaybackHasStopped(void) override
+    {
+        IDeckLinkVideoFrame* vid_frame;
+        while (frames_q.empty())
+        {
+            vid_frame = frames_q.front();
+            frames_q.pop();
+            vid_frame->Release();
+        }
+
+        frames_count = 0;
+
+        return S_OK;
+    }
+
+    // IUnknown interface
+    HRESULT QueryInterface(REFIID iid, LPVOID* ppv)
+    {
+        HRESULT result = S_OK;
+
+        if (ppv == nullptr)
+            return E_INVALIDARG;
+
+        // Obtain the IUnknown interface and compare it the provided REFIID
+        if (iid == IID_IUnknown)
+        {
+            *ppv = this;
+            AddRef();
+        }
+        else if (iid == IID_IDeckLinkVideoOutputCallback)
+        {
+            *ppv = (IDeckLinkVideoOutputCallback*)this;
+            AddRef();
+        }
+        else if (iid == IID_IDeckLinkAudioOutputCallback)
+        {
+            *ppv = (IDeckLinkAudioOutputCallback*)this;
+            AddRef();
+        }
+        else
+        {
+            *ppv = nullptr;
+            result = E_NOINTERFACE;
+        }
+
+        return result;
+    }
+
+    ULONG AddRef()
+    {
+        count += 1;
+        return count;
+    }
+
+    ULONG Release()
+    {
+        count--;
+        ULONG newRefValue = --count;
+
+        if (newRefValue == 0)
+            delete this;
+
+        return newRefValue;
+    }
+
+
+};
+
 class DeckLinkPort {
 protected:
     IDeckLink* port;
@@ -227,6 +341,8 @@ protected:
 
     VideoFrameObj* frame;
 
+    DeckLinkPlaybackCallback* cb;
+
 
 public:
     // mode = 0 (HD) ... mode = 1 (UHD 4K)
@@ -234,6 +350,7 @@ public:
         port(dev), isOutput(o), result(S_OK), displayMode(nullptr), displayModeIterator(nullptr), pixelFormat(bmdFormat10BitYUV),
         profileAttrib(nullptr), displayModesCount(0)
     {
+       
         output = nullptr;
         assert(dev != nullptr);
         if (isOutput)
@@ -243,6 +360,8 @@ public:
 
             if (result == S_OK)
             {
+                cb = new DeckLinkPlaybackCallback(this->output);
+
                 result = this->output->GetDisplayModeIterator(&displayModeIterator);
 
                 assert(result == S_OK);
@@ -353,6 +472,26 @@ public:
     void AddFrame(void* frameBuffer, size_t size = 0)
     {
         frame->SetFrameData(frameBuffer, size);
+        BOOL playback_running;
+       
+        this->output->IsScheduledPlaybackRunning(&playback_running);
+
+        if (!playback_running)
+        {
+            BMDTimeValue tv = 0, duration = 1000;
+            BMDTimeScale scale = 50000;
+
+            displayMode->GetFrameRate(&duration, &scale);
+
+            this->output->SetScheduledFrameCompletionCallback(cb);
+
+            this->output->ScheduleVideoFrame(frame, tv, duration, scale);
+
+            this->output->StartScheduledPlayback(0, scale, 1);
+        }
+        else {
+            cb->addFrame(frame);
+        }
     }
 
     void DisplayFrame()
@@ -393,9 +532,13 @@ private:
     uint32_t* gpuMemory;
     uint4* dst_4;
     uint* dst_full;
-    unsigned char* buffer;
+    uchar* buffer;
+
+    BMDPixelFormat pxFormat;
 
     unsigned int width, height;
+    
+    uchar3* rgb_data, *rgb_data_h;
 
 public:
 
@@ -406,7 +549,7 @@ public:
         pinnedMemory(nullptr),
         gpuMemory(nullptr),
         height(0), width(0),
-        dst_4(nullptr), dst_full(nullptr), buffer(NULL)
+        dst_4(nullptr), dst_full(nullptr), buffer(NULL), pxFormat(bmdFormatUnspecified)
 
     {
     
@@ -415,11 +558,27 @@ public:
     void arrived(IDeckLinkVideoInputFrame * frame) override {
         //std::cout << frame->GetWidth() << std::endl;
 
-        if (pinnedMemory == nullptr)
+        if (pxFormat != frame->GetPixelFormat())
         {
-            assert(cudaSuccess==cudaMallocHost((void**)&pinnedMemory, frame->GetRowBytes()*frame->GetHeight()));
+            pxFormat = frame->GetPixelFormat();
+
+            if (pinnedMemory != nullptr)
+            {
+                cudaFreeHost(pinnedMemory);
+                cudaFree(gpuMemory);
+
+                if (dst_4 != nullptr)
+                {
+                    cudaFree(dst_4);
+                    cudaFree(dst_full);
+                }
+            }
+
+            assert(cudaSuccess==cudaMallocHost((void**)&pinnedMemory, frame->GetHeight() * frame->GetWidth() * sizeof(uint)));
             assert(cudaSuccess==cudaMalloc((void**)&gpuMemory, frame->GetRowBytes() * frame->GetHeight()));
 
+            assert(cudaSuccess == cudaMalloc((void**)&rgb_data, frame->GetWidth() * frame->GetHeight() * sizeof(uchar3)));
+            assert(cudaSuccess == cudaMallocHost((void**)&rgb_data_h, frame->GetWidth() * frame->GetHeight() * sizeof(uchar3)));
             // this assumes we are receiving YUV data at 10bits.
             switch (frame->GetPixelFormat())
             {
@@ -427,7 +586,12 @@ public:
             {
                 assert(cudaSuccess == cudaMalloc((void**)&dst_4, frame->GetHeight() * (frame->GetWidth() / 2) * sizeof(uint4)));
                 assert(cudaSuccess == cudaMalloc((void**)&dst_full, frame->GetHeight() * frame->GetWidth() * sizeof(uint)));
-                
+                break;
+            }
+            case bmdFormat8BitYUV:
+            {
+                assert(cudaSuccess == cudaMalloc((void**)&dst_4, frame->GetHeight() * (frame->GetWidth() / 2) * sizeof(uint4)));
+                assert(cudaSuccess == cudaMalloc((void**)&dst_full, frame->GetHeight() * frame->GetWidth() * sizeof(uint)));
                 break;
             }
             }  
@@ -436,30 +600,45 @@ public:
         width = frame->GetWidth();
         height = frame->GetHeight();
 
-        frame->GetBytes((void**)&buffer);
-        memcpy(pinnedMemory, buffer, frame->GetRowBytes() * frame->GetHeight());
-        assert(cudaSuccess == cudaMemcpy(gpuMemory, pinnedMemory, frame->GetRowBytes() * frame->GetHeight(), cudaMemcpyHostToDevice));
-
-        switch (frame->GetPixelFormat())
+        if (S_OK == frame->GetBytes((void**)&buffer)) 
         {
-        case bmdFormat10BitYUV:
-        {
-            std::cout << "10bit YUV data" << std::endl;
-            _getch();
-            this->unpack_10bit_yuv();
-            break;
-        }
-        }
+            cudaError_t cudaStatus = cudaMemcpy(gpuMemory, buffer, frame->GetRowBytes() * frame->GetHeight(), cudaMemcpyHostToDevice);
 
-        frames_queue.push(frame);
+            assert(cudaStatus == cudaSuccess);
+            
+            switch (frame->GetPixelFormat())
+            {
+            case bmdFormat10BitYUV:
+            {
+                this->unpack_10bit_yuv();
+                
+                convert_10bit_2_rgb();
+                cv::namedWindow("Preview", cv::WINDOW_NORMAL);
+                cv::Mat preview(cv::Size(width, height), CV_8UC3);
+
+                
+                // from here we build the NDI sender ....
+                preview.data = (uchar*)rgb_data_h;
+
+                cv::imshow("Preview", preview);
+                cv::waitKey(2);
+                break;
+            }
+            }
+        }
+       
+
+     /*   frames_queue.push(frame);
         if (frames_queue.size() > maxFrameCount)
         {
             frames_queue.pop();
             droppedFrames = true;
             return;
         }
-        droppedFrames = false;
+        droppedFrames = false;*/
     }
+
+    void convert_10bit_2_rgb();
 
     void unpack_10bit_yuv();
 
