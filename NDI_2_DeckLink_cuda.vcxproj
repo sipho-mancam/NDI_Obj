@@ -14,7 +14,10 @@
     <ClInclude Include="common.hpp" />
     <ClInclude Include="decklinkAPI.hpp" />
     <ClInclude Include="DeckLinkDevice.h" />
+    <ClInclude Include="decklink_api.hpp" />
     <ClInclude Include="decklink_kernels.cuh" />
+    <ClInclude Include="interface_manager.hpp" />
+    <ClInclude Include="ndi_api.hpp" />
     <ClInclude Include="NDI_constants.hpp" />
     <ClInclude Include="platform.h" />
     <ClInclude Include="stdafx.h" />
@@ -23,7 +26,10 @@
   <ItemGroup>
     <ClCompile Include="DeckLinkAPI_i.c" />
     <ClCompile Include="DeckLinkDevice.cpp" />
-    <ClCompile Include="NDI_Obj.cpp" />
+    <ClCompile Include="decklink_api_2.cpp" />
+    <ClCompile Include="interface_manager.cpp" />
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="ndi_api.cpp" />
     <ClCompile Include="platform.cpp" />
     <ClCompile Include="stdafx.cpp" />
   </ItemGroup>

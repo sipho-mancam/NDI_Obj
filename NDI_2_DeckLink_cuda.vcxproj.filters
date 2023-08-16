@@ -17,32 +17,50 @@
       <UniqueIdentifier>{c9a7266e-7f83-4542-a6ab-3e774afc7863}</UniqueIdentifier>
       <Extensions>.cu</Extensions>
     </Filter>
+    <Filter Include="DeckLink">
+      <UniqueIdentifier>{2e8a5700-b73f-44f6-9575-2d99e3444e08}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="DeckLink\Headers">
+      <UniqueIdentifier>{ef728049-933f-48dd-93ea-ee32da4568e0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="DeckLink\Source">
+      <UniqueIdentifier>{c11ccbbf-6879-4fab-b25e-4d8d5d683868}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="NDI">
+      <UniqueIdentifier>{fda52de2-8fcb-436f-a1f1-0bc9ab46e0cc}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="InterfaceMan">
+      <UniqueIdentifier>{f6f52444-154e-43fa-afae-64c7e8028432}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="DeckLinkAPI_i.c">
-      <Filter>Source</Filter>
-    </ClCompile>
-    <ClCompile Include="DeckLinkDevice.cpp">
-      <Filter>Source</Filter>
-    </ClCompile>
-    <ClCompile Include="NDI_Obj.cpp">
-      <Filter>Source</Filter>
-    </ClCompile>
-    <ClCompile Include="platform.cpp">
-      <Filter>Source</Filter>
-    </ClCompile>
     <ClCompile Include="stdafx.cpp">
       <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="decklink_api_2.cpp">
+      <Filter>DeckLink\Source</Filter>
+    </ClCompile>
+    <ClCompile Include="DeckLinkAPI_i.c">
+      <Filter>DeckLink\Source</Filter>
+    </ClCompile>
+    <ClCompile Include="DeckLinkDevice.cpp">
+      <Filter>DeckLink\Source</Filter>
+    </ClCompile>
+    <ClCompile Include="main.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="interface_manager.cpp">
+      <Filter>InterfaceMan</Filter>
+    </ClCompile>
+    <ClCompile Include="ndi_api.cpp">
+      <Filter>NDI</Filter>
+    </ClCompile>
+    <ClCompile Include="platform.cpp">
+      <Filter>DeckLink\Source</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="common.hpp">
-      <Filter>HeaderFiles</Filter>
-    </ClInclude>
-    <ClInclude Include="decklinkAPI.hpp">
-      <Filter>HeaderFiles</Filter>
-    </ClInclude>
-    <ClInclude Include="DeckLinkDevice.h">
       <Filter>HeaderFiles</Filter>
     </ClInclude>
     <ClInclude Include="NDI_constants.hpp">
@@ -60,13 +78,28 @@
     <ClInclude Include="decklink_kernels.cuh">
       <Filter>CudaHeaders</Filter>
     </ClInclude>
+    <ClInclude Include="decklink_api.hpp">
+      <Filter>DeckLink\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="decklinkAPI.hpp">
+      <Filter>DeckLink\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="DeckLinkDevice.h">
+      <Filter>DeckLink\Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="interface_manager.hpp">
+      <Filter>InterfaceMan</Filter>
+    </ClInclude>
+    <ClInclude Include="ndi_api.hpp">
+      <Filter>NDI</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="decklink_kernels.cu">
       <Filter>CudaSources</Filter>
     </CudaCompile>
     <CudaCompile Include="decklinkAPI.cu">
-      <Filter>Source</Filter>
+      <Filter>DeckLink\Source</Filter>
     </CudaCompile>
   </ItemGroup>
 </Project>

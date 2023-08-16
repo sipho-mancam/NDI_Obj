@@ -1,4 +1,5 @@
-#include "decklinkAPI.hpp"
+#include "decklink_api.hpp"
+
 #include "cuda_runtime_api.h"
 #include "device_launch_parameters.h"
 #include "decklink_kernels.cuh"
