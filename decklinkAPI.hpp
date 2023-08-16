@@ -540,6 +540,8 @@ private:
     
     uchar3* rgb_data, *rgb_data_h;
 
+    std::mutex mtx;
+
 public:
 
     VideoFrameCallback(int mFrameCount = 5) : 
@@ -549,14 +551,17 @@ public:
         pinnedMemory(nullptr),
         gpuMemory(nullptr),
         height(0), width(0),
-        dst_4(nullptr), dst_full(nullptr), buffer(NULL), pxFormat(bmdFormatUnspecified)
-
+        dst_4(nullptr), dst_full(nullptr), buffer(NULL), 
+        pxFormat(bmdFormatUnspecified),
+        rgb_data(nullptr), rgb_data_h(nullptr)
     {
     
     }
     // This is called on a seperate thread ...
     void arrived(IDeckLinkVideoInputFrame * frame) override {
-        //std::cout << frame->GetWidth() << std::endl;
+        
+       frames_queue.push(frame);      
+        //std::lock_guard<std::mutex> lock(mtx);
 
         if (pxFormat != frame->GetPixelFormat())
         {
@@ -603,20 +608,20 @@ public:
         if (S_OK == frame->GetBytes((void**)&buffer)) 
         {
             cudaError_t cudaStatus = cudaMemcpy(gpuMemory, buffer, frame->GetRowBytes() * frame->GetHeight(), cudaMemcpyHostToDevice);
-
+            
             assert(cudaStatus == cudaSuccess);
             
             switch (frame->GetPixelFormat())
             {
             case bmdFormat10BitYUV:
             {
+                //std::cout << "I received data" << std::endl;
                 this->unpack_10bit_yuv();
-                
                 convert_10bit_2_rgb();
                 cv::namedWindow("Preview", cv::WINDOW_NORMAL);
                 cv::Mat preview(cv::Size(width, height), CV_8UC3);
 
-                
+                    
                 // from here we build the NDI sender ....
                 preview.data = (uchar*)rgb_data_h;
 
@@ -624,19 +629,15 @@ public:
                 cv::waitKey(2);
                 break;
             }
+          
             }
         }
        
 
-     /*   frames_queue.push(frame);
-        if (frames_queue.size() > maxFrameCount)
-        {
-            frames_queue.pop();
-            droppedFrames = true;
-            return;
-        }
-        droppedFrames = false;*/
+    
     }
+
+    std::queue<IDeckLinkVideoInputFrame*>* getQueRef() { return(&frames_queue); }
 
     void convert_10bit_2_rgb();
 
@@ -676,6 +677,7 @@ private:
     DeckLinkDevice* deckLinkCap;
     VideoFrameCallback* callback;
 
+
 public:
     DeckLinkInputPort(IDeckLink* dev) : DeckLinkPort(dev, false)
     {
@@ -694,6 +696,9 @@ public:
 
     void RegisterVideoCallback(FrameArrivedCallback* _cb) {
         deckLinkCap->registerFrameArrivedCallback(_cb);
+        delete callback;
+        // might cause bugs when the callback object is different from the one we created here ...
+        callback = (VideoFrameCallback*)_cb;
     }
     
 
@@ -703,6 +708,8 @@ public:
     }
 
     DeckLinkDevice* _getPort() { return this->deckLinkCap; }
+
+    std::queue< IDeckLinkVideoInputFrame*>* getQRef() { return callback->getQueRef(); }
 
 
 };
