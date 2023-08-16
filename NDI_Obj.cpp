@@ -636,9 +636,6 @@ int main()
 
     sender->start();
 
-    while (true);
-
-   
     Discovery* discovery = new Discovery(&exit_flag);
 
     NDI_Recv* receiver = new NDI_Recv(&exit_flag, 0);
@@ -694,7 +691,7 @@ int main()
                 receiver->start();
                 std::cin.clear();
 
-                inputPort->startCapture();
+                //inputPort->startCapture();
                 break;
             }
             

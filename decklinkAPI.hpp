@@ -514,10 +514,10 @@ public:
     ~DeckLinkPort()
     {
 
-        port->Release();
-        output->Release();
-        displayModeIterator->Release();
-        profileAttrib->Release();
+        if(port)port->Release();
+        if(output)output->Release();
+        if(displayModeIterator)displayModeIterator->Release();
+        if(profileAttrib)profileAttrib->Release();
     }
 
 };
