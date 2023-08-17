@@ -25,6 +25,9 @@ private:
 
     VideoFrameObj* frame;
 
+    NDIlib_video_frame_v2_t NDI_video_frame_10bit;
+    NDIlib_video_frame_v2_t NDI_video_frame_16bit;
+
     NDIlib_video_frame_v2_t convert_decklink_2_ndi_frame(IDeckLinkVideoInputFrame*);
     IDeckLinkVideoFrame* convert_ndi_2_decklink_frame(NDIlib_video_frame_v2_t*);
 

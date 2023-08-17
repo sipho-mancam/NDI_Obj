@@ -33,7 +33,6 @@ std::queue<T*>* Interface_Manager::getQRef(bool out)
 }
 
 
-
 void Interface_Manager::process_decklink_q_thread()
 {
     // this function processes the decklink input q and converts it to NDI frame
@@ -41,10 +40,15 @@ void Interface_Manager::process_decklink_q_thread()
     {
         if (!decklink_in_q.empty())
         {
+            auto start = std::chrono::high_resolution_clock::now();
             IDeckLinkVideoInputFrame* frame = decklink_in_q.front();
             decklink_in_q.pop(); // manage the queue memory
             NDIlib_video_frame_v2_t ndi_frame = convert_decklink_2_ndi_frame(frame);
             ndi_out_q.push(ndi_frame);
+            
+            auto end = std::chrono::high_resolution_clock::now();
+            //std::cout << (end - start).count() / 1000000 << " ms" << std::endl;
+
         }
     }
 }
@@ -63,9 +67,6 @@ void Interface_Manager::process_ndi_q_thread()
         }
     }
 }
-
-
-
 
 
 IDeckLinkVideoFrame* Interface_Manager::convert_ndi_2_decklink_frame(NDIlib_video_frame_v2_t* ndi_frame)
@@ -96,52 +97,55 @@ IDeckLinkVideoFrame* Interface_Manager::convert_ndi_2_decklink_frame(NDIlib_vide
     }
     outframe = frame;
 
-    //free(ndi_frame->p_data);
-    //delete ndi_frame;
-
     return outframe;
 }
 
 NDIlib_video_frame_v2_t Interface_Manager::convert_decklink_2_ndi_frame(IDeckLinkVideoInputFrame* frame)
 {
     // declare the NDI frame, copy the decklink parameters over to it, ... and return it.
-    NDIlib_video_frame_v2_t NDI_video_frame_10bit;
-    NDIlib_video_frame_v2_t NDI_video_frame_16bit;
+    
+    try {
+        switch (frame->GetPixelFormat())
+        {
+        case bmdFormat10BitYUV:
+        {
+            NDI_video_frame_10bit.xres = frame->GetWidth();
+            NDI_video_frame_10bit.yres = frame->GetHeight();
+            NDI_video_frame_10bit.FourCC = (NDIlib_FourCC_video_type_e)NDI_LIB_FOURCC('V', '2', '1', '0');
+            NDI_video_frame_10bit.line_stride_in_bytes = frame->GetRowBytes();
+            NDI_video_frame_10bit.frame_rate_N = 50000;
+            NDI_video_frame_10bit.frame_rate_D = 1000;
+            NDI_video_frame_10bit.frame_format_type = NDIlib_frame_format_type_progressive;
+            NDI_video_frame_10bit.picture_aspect_ratio = 16.0f / 9.0f;
+            NDI_video_frame_10bit.timecode = NDIlib_send_timecode_synthesize;
+            uchar* buf;
 
-    switch(frame->GetPixelFormat())
-    {
-    case bmdFormat10BitYUV:
-    {
-        NDI_video_frame_10bit.xres = frame->GetWidth();
-        NDI_video_frame_10bit.yres = frame->GetHeight();
-        NDI_video_frame_10bit.FourCC = (NDIlib_FourCC_video_type_e)NDI_LIB_FOURCC('V', '2', '1', '0');
-        NDI_video_frame_10bit.line_stride_in_bytes = frame->GetRowBytes();
-        NDI_video_frame_10bit.frame_rate_N = 50000;
-        NDI_video_frame_10bit.frame_rate_D = 1000;
-        NDI_video_frame_10bit.frame_format_type = NDIlib_frame_format_type_progressive;
-        NDI_video_frame_10bit.picture_aspect_ratio = 16.0f / 9.0f;
-        NDI_video_frame_10bit.timecode = NDIlib_send_timecode_synthesize;
+            frame->GetBytes((void**)&buf);
+            if(!NDI_video_frame_10bit.p_data)
+                NDI_video_frame_10bit.p_data = (uint8_t*)malloc(frame->GetRowBytes() * frame->GetHeight());
 
-        uchar* buf;
+            memcpy(NDI_video_frame_10bit.p_data, buf, NDI_video_frame_10bit.line_stride_in_bytes * NDI_video_frame_10bit.yres);
 
-        frame->GetBytes((void**)&buf);
-        NDI_video_frame_10bit.p_data = (uint8_t*)malloc(frame->GetRowBytes() * frame->GetHeight());
-        memcpy(NDI_video_frame_10bit.p_data, buf, NDI_video_frame_10bit.line_stride_in_bytes* NDI_video_frame_10bit.yres);
+            NDI_video_frame_16bit.xres = NDI_video_frame_10bit.xres;
+            NDI_video_frame_16bit.yres = NDI_video_frame_10bit.yres;
 
-        NDI_video_frame_16bit.xres = NDI_video_frame_10bit.xres;
-        NDI_video_frame_16bit.yres = NDI_video_frame_10bit.yres;
+            NDI_video_frame_16bit.line_stride_in_bytes = NDI_video_frame_16bit.xres * sizeof(uint16_t);
+            if(!NDI_video_frame_16bit.p_data)
+                NDI_video_frame_16bit.p_data = (uint8_t*)malloc(NDI_video_frame_16bit.line_stride_in_bytes * 2 * NDI_video_frame_16bit.yres);
 
-        NDI_video_frame_16bit.line_stride_in_bytes = NDI_video_frame_16bit.xres * sizeof(uint16_t);
-        NDI_video_frame_16bit.p_data = (uint8_t*)malloc(NDI_video_frame_16bit.line_stride_in_bytes * 2 * NDI_video_frame_16bit.yres);
+            // Convert into the destination
+            NDIlib_util_V210_to_P216(&NDI_video_frame_10bit, &NDI_video_frame_16bit);
+            break;
+        }
 
-        // Convert into the destination
-        NDIlib_util_V210_to_P216(&NDI_video_frame_10bit, &NDI_video_frame_16bit);
-        break;
+        }
     }
-        
+    catch (std::exception& re) {
+        std::cout << re.what() << std::endl;
     }
-    //frame->Release();
-    free(NDI_video_frame_10bit.p_data);
+
+    frame->Release();
+    
     return NDI_video_frame_16bit;
 }
 
@@ -206,7 +210,9 @@ void Interface_Manager::stop()
     std::cout << "Waiting for the streams to wrap up ..." << std::endl;
     // wait for output queues to be empty ...
     auto start = std::chrono::high_resolution_clock::now();
-    while ((!ndi_out_q.empty() || !decklink_out_q.empty())) {}
+    while ((!ndi_out_q.empty() || !decklink_out_q.empty()) &&
+        ((std::chrono::high_resolution_clock::now() - start) < std::chrono::seconds(5)) )
+    {}
 
     return;
 }

@@ -625,7 +625,7 @@ VideoFrameCallback::VideoFrameCallback(int mFrameCount) :
 // This is called on a seperate thread ...
 void VideoFrameCallback::arrived(IDeckLinkVideoInputFrame* frame) 
 {
-    auto start = std::chrono::high_resolution_clock::now();
+    frame->AddRef();
     // interogate the frame to decide how to process it ...
     width = frame->GetWidth();
     height = frame->GetHeight();
@@ -664,10 +664,6 @@ void VideoFrameCallback::arrived(IDeckLinkVideoInputFrame* frame)
         break;
     }
     }
-
-    auto end = std::chrono::high_resolution_clock::now();
-    //std::cout << (end - start).count() / 1000000 << " ms" << std::endl;
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
 }
 
 void VideoFrameCallback::clearAll()
@@ -683,13 +679,16 @@ void VideoFrameCallback::subscribe_2_q(std::queue<IDeckLinkVideoInputFrame*>* q)
 
 void VideoFrameCallback::preview_10bit_yuv(IDeckLinkVideoInputFrame* frame)
 {
-    cudaMallocHost((void**)&pinnedMemory, frame->GetHeight() * frame->GetWidth() * sizeof(uint));
-    cudaMalloc((void**)&gpuMemory, frame->GetRowBytes() * frame->GetHeight());
+    if (rgb_data_h == nullptr)
+    {
+        cudaMallocHost((void**)&pinnedMemory, frame->GetHeight() * frame->GetWidth() * sizeof(uint));
+        cudaMalloc((void**)&gpuMemory, frame->GetRowBytes() * frame->GetHeight());
 
-    cudaMalloc((void**)&rgb_data, frame->GetWidth() * frame->GetHeight() * sizeof(uchar3));
-    cudaMallocHost((void**)&rgb_data_h, frame->GetWidth() * frame->GetHeight() * sizeof(uchar3));
+        cudaMalloc((void**)&rgb_data, frame->GetWidth() * frame->GetHeight() * sizeof(uchar3));
+        cudaMallocHost((void**)&rgb_data_h, frame->GetWidth() * frame->GetHeight() * sizeof(uchar3));
 
-    cudaMalloc((void**)&dst_4, frame->GetHeight() * (frame->GetWidth() / 2) * sizeof(uint4));
+        cudaMalloc((void**)&dst_4, frame->GetHeight() * (frame->GetWidth() / 2) * sizeof(uint4));
+    }
     
     if (S_OK == frame->GetBytes((void**)&buffer))
     {
@@ -700,28 +699,22 @@ void VideoFrameCallback::preview_10bit_yuv(IDeckLinkVideoInputFrame* frame)
     else {
         return;
     }
-    
-
 
     this->unpack_10bit_yuv();
-
     convert_10bit_2_rgb();
 
-    cv::namedWindow("Preview", cv::WINDOW_NORMAL);
     cv::Mat preview(cv::Size(width, height), CV_8UC3);
-
     // from here we build the NDI sender ....
     preview.data = (uchar*)rgb_data_h;
-
     cv::imshow("Preview", preview);
     cv::waitKey(2);
 
-    cudaFree(gpuMemory);
+   /* cudaFree(gpuMemory);
     cudaFree(rgb_data);
     cudaFree(dst_4);
 
     cudaFreeHost(pinnedMemory);
-    cudaFreeHost(rgb_data_h);
+    cudaFreeHost(rgb_data_h);*/
 }
 
 IDeckLinkVideoInputFrame* VideoFrameCallback::getFrame()

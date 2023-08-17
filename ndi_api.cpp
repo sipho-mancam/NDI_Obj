@@ -120,11 +120,9 @@ Discovery::~Discovery()
 
 void NDI_Recv::run()
 {
+   /* if (!frames)
+        frames = new std::queue<NDIlib_video_frame_v2_t*>();*/
 
-    if (!frames)
-        frames = new std::queue<NDIlib_video_frame_v2_t*>();
-
-    cv::Mat preview;
     while (!(*exit) && running)
     {
         // The descriptors
@@ -199,7 +197,7 @@ void NDI_Recv::run()
 
             NDIlib_recv_free_video_v2(rec_instance, &video_frame);
 
-            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            //std::this_thread::sleep_for(std::chrono::milliseconds(10));
             
             break;
         }
@@ -401,7 +399,7 @@ void NDI_Sender::run()
             NDI_video_frame_16bit = frames_q->front();
             NDIlib_send_send_video_v2(sender, &NDI_video_frame_16bit);
             frames_q->pop();
-            free(NDI_video_frame_16bit.p_data);
+            //free(NDI_video_frame_16bit.p_data);
 
         }
         

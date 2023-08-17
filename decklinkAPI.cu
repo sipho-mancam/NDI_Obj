@@ -27,16 +27,19 @@ void VideoFrameCallback::convert_10bit_2_rgb()
     cudaError_t cudaStatus;
     const dim3 block(16, 16); // 256 threads per block..
     const dim3 grid(width /(2*block.x), height / block.y);
-
     unpacked_10bityuv_2_rgb <<< grid, block >> > (
         dst_4,
         rgb_data,
         width, height
         );
 
+  
+
     cudaStatus = cudaGetLastError();
     assert(cudaStatus == cudaSuccess);
     assert(cudaSuccess == cudaDeviceSynchronize());
     assert(cudaSuccess == cudaMemcpy(rgb_data_h, rgb_data, width * height * sizeof(uchar3), cudaMemcpyDeviceToHost));
+
+
 
 }
