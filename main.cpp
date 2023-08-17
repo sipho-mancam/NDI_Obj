@@ -8,42 +8,41 @@ int main()
 {
     init();
     bool exit_flag = false;
+
+    Interface_Manager interface_manager;
+    interface_manager.start_decklink();
+    interface_manager.start_ndi();
     DeckLinkCard* card = new DeckLinkCard();
 
     // this configures port 0 and 1 as output and gives you a handle to it
-    DeckLinkOutputPort* fillPort = card->SelectOutputPort(0);
-    DeckLinkOutputPort* keyPort = card->SelectOutputPort(1);
+    //DeckLinkOutputPort* fillPort = card->SelectOutputPort(0);
+    //DeckLinkOutputPort* keyPort = card->SelectOutputPort(1);
 
-    // this configures port 2 as input and gives you a handle to it.
-    // ports are zero indexed.
     DeckLinkInputPort* inputPort = card->SelectInputPort(3);
-
-    assert(fillPort != nullptr);
-    assert(keyPort != nullptr);
     assert(inputPort != nullptr);
-
+    inputPort->subscribe_2_input_q(interface_manager.getDeckLinkInputQ());
     inputPort->startCapture();
+
+    DeckLinkOutputPort* video_out = card->SelectOutputPort(2);
+    video_out->subscribe_2_q(interface_manager.getDeckLinkOutputQ());
+    video_out->start();    
+    
     NDI_Sender* sender = new NDI_Sender(&exit_flag, "");
-
-    sender->subscribe_to_q(inputPort->getQRef());
-
+    sender->subscribe_to_q(interface_manager.getNDIOutputQ());
     sender->start();
 
-    Discovery* discovery = new Discovery(&exit_flag);
-
     NDI_Recv* receiver = new NDI_Recv(&exit_flag, 0);
-
-    receiver->setKeyAndFillPorts(fillPort, keyPort);
-
-    receiver->enableFillAndKey();
+    receiver->subscribe_to_q(interface_manager.getNDIInputQ());
+    //receiver->setKeyAndFillPorts(fillPort, keyPort);
+    //receiver->enableFillAndKey();
 
     auto start = std::chrono::high_resolution_clock::now();
 
+    Discovery* discovery = new Discovery(&exit_flag);
     discovery->start();
+    discovery->showMeList();
 
     int console_key = 0, choice = 0;
-
-    discovery->showMeList();
 
     while (!exit_flag)
     {
@@ -67,6 +66,7 @@ int main()
 
                 receiver->stop();
                 system("cls");
+                // show the most recent list...
                 discovery->showMeList();
                 std::cout << "Selected Device using index (0, 1, 2 ...etc): ";
                 std::cin >> choice;
@@ -77,14 +77,12 @@ int main()
                     std::cout << "Index out of range ..." << std::endl;
                     _getch();
                 }
-
-                if (!s.empty())
+                else {
                     receiver->connect(s);
+                }
 
                 receiver->start();
                 std::cin.clear();
-
-                //inputPort->startCapture();
                 break;
             }
 
@@ -101,7 +99,9 @@ int main()
         }
     }
 
+
     delete discovery;
+    //delete video_out;
     delete receiver;
     delete sender;
     delete card;

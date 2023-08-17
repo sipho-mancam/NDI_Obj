@@ -17,10 +17,9 @@ void VideoFrameCallback::unpack_10bit_yuv()
         );
 
     cudaStatus = cudaGetLastError();
-    assert(cudaStatus == cudaSuccess);
-    assert(cudaSuccess == cudaDeviceSynchronize());
-
-    assert(cudaSuccess == cudaMemcpy(pinnedMemory, dst_full, width*height * sizeof(uint), cudaMemcpyDeviceToHost));
+    assert(cudaSuccess == cudaStatus);
+    cudaStatus = cudaDeviceSynchronize();
+    assert(cudaSuccess == cudaStatus);
 }
 
 void VideoFrameCallback::convert_10bit_2_rgb()
@@ -38,7 +37,6 @@ void VideoFrameCallback::convert_10bit_2_rgb()
     cudaStatus = cudaGetLastError();
     assert(cudaStatus == cudaSuccess);
     assert(cudaSuccess == cudaDeviceSynchronize());
-
     assert(cudaSuccess == cudaMemcpy(rgb_data_h, rgb_data, width * height * sizeof(uchar3), cudaMemcpyDeviceToHost));
 
 }

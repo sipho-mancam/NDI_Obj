@@ -1,11 +1,10 @@
 #include "interface_manager.hpp"
 #include <thread>
 
-
-
 template <typename T>
-std::queue<T>* Interface_Manager::getQRef(bool out)
+std::queue<T*>* Interface_Manager::getQRef(bool out)
 {
+    std::cout << "It runs" << std::endl;
     // passed type 
     std::string type(typeid(T).name());
 
@@ -15,6 +14,8 @@ std::queue<T>* Interface_Manager::getQRef(bool out)
 
     if (type == decklink_in)
     {
+        std::cout << "We are giving you the input Q" << std::endl;
+        _getch();
         return &decklink_in_q;
     }
     if (type == decklink_out)
@@ -30,6 +31,8 @@ std::queue<T>* Interface_Manager::getQRef(bool out)
 
     return nullptr;
 }
+
+
 
 void Interface_Manager::process_decklink_q_thread()
 {
@@ -53,27 +56,93 @@ void Interface_Manager::process_ndi_q_thread()
     {
         if (!ndi_in_q.empty())
         {
-            NDIlib_video_frame_v2_t frame = ndi_in_q.front();
+            NDIlib_video_frame_v2_t* frame = ndi_in_q.front();
             ndi_in_q.pop();
             IDeckLinkVideoFrame* deck_frame = convert_ndi_2_decklink_frame(frame);
-            decklink_out_q.push(deck_frame);
+            decklink_out_q.push(deck_frame); 
         }
     }
 }
 
 
-IDeckLinkVideoFrame* Interface_Manager::convert_ndi_2_decklink_frame(NDIlib_video_frame_v2_t ndi_frame)
+
+
+
+IDeckLinkVideoFrame* Interface_Manager::convert_ndi_2_decklink_frame(NDIlib_video_frame_v2_t* ndi_frame)
 {
     // Declare some decklink object and allocate it some memory .... copy video parameters and return it
+    VideoFrameObj* outframe = nullptr;
 
-    return nullptr;
+    switch (ndi_frame->FourCC)
+    {
+    case NDIlib_FourCC_type_BGRA: // 8bit BGRA data out..
+    {
+        if(frame == nullptr)
+            frame = new VideoFrameObj(ndi_frame->xres, ndi_frame->yres, bmdFormat8BitBGRA);
+        
+        outframe = frame;
+        outframe->SetFrameData(ndi_frame->p_data);
+        break;
+    }
+
+    case NDIlib_FourCC_type_UYVY:
+    {
+        if (frame == nullptr)
+            frame = new VideoFrameObj(ndi_frame->xres, ndi_frame->yres, bmdFormat8BitYUV);
+        outframe = frame;
+        outframe->SetFrameData(ndi_frame->p_data);
+        break;
+    }
+    }
+    outframe = frame;
+
+    //free(ndi_frame->p_data);
+    //delete ndi_frame;
+
+    return outframe;
 }
 
-NDIlib_video_frame_v2_t Interface_Manager::convert_decklink_2_ndi_frame(IDeckLinkVideoInputFrame* deck_frame)
+NDIlib_video_frame_v2_t Interface_Manager::convert_decklink_2_ndi_frame(IDeckLinkVideoInputFrame* frame)
 {
     // declare the NDI frame, copy the decklink parameters over to it, ... and return it.
-    NDIlib_video_frame_v2_t frame;
-    return frame;
+    NDIlib_video_frame_v2_t NDI_video_frame_10bit;
+    NDIlib_video_frame_v2_t NDI_video_frame_16bit;
+
+    switch(frame->GetPixelFormat())
+    {
+    case bmdFormat10BitYUV:
+    {
+        NDI_video_frame_10bit.xres = frame->GetWidth();
+        NDI_video_frame_10bit.yres = frame->GetHeight();
+        NDI_video_frame_10bit.FourCC = (NDIlib_FourCC_video_type_e)NDI_LIB_FOURCC('V', '2', '1', '0');
+        NDI_video_frame_10bit.line_stride_in_bytes = frame->GetRowBytes();
+        NDI_video_frame_10bit.frame_rate_N = 50000;
+        NDI_video_frame_10bit.frame_rate_D = 1000;
+        NDI_video_frame_10bit.frame_format_type = NDIlib_frame_format_type_progressive;
+        NDI_video_frame_10bit.picture_aspect_ratio = 16.0f / 9.0f;
+        NDI_video_frame_10bit.timecode = NDIlib_send_timecode_synthesize;
+
+        uchar* buf;
+
+        frame->GetBytes((void**)&buf);
+        NDI_video_frame_10bit.p_data = (uint8_t*)malloc(frame->GetRowBytes() * frame->GetHeight());
+        memcpy(NDI_video_frame_10bit.p_data, buf, NDI_video_frame_10bit.line_stride_in_bytes* NDI_video_frame_10bit.yres);
+
+        NDI_video_frame_16bit.xres = NDI_video_frame_10bit.xres;
+        NDI_video_frame_16bit.yres = NDI_video_frame_10bit.yres;
+
+        NDI_video_frame_16bit.line_stride_in_bytes = NDI_video_frame_16bit.xres * sizeof(uint16_t);
+        NDI_video_frame_16bit.p_data = (uint8_t*)malloc(NDI_video_frame_16bit.line_stride_in_bytes * 2 * NDI_video_frame_16bit.yres);
+
+        // Convert into the destination
+        NDIlib_util_V210_to_P216(&NDI_video_frame_10bit, &NDI_video_frame_16bit);
+        break;
+    }
+        
+    }
+    //frame->Release();
+    free(NDI_video_frame_10bit.p_data);
+    return NDI_video_frame_16bit;
 }
 
 void Interface_Manager::start()
@@ -84,13 +153,31 @@ void Interface_Manager::start()
     * 2. create threads for ndi_processing and decklink_processing.
     * 3.
     */
-
     exit_flag = false;
-    ndi_processor_worker = new std::thread(&Interface_Manager::process_ndi_q_thread, this);
     decklink_processer_worker = new std::thread(&Interface_Manager::process_decklink_q_thread, this);
+    ndi_processor_worker = new std::thread(&Interface_Manager::process_ndi_q_thread, this);
 
     return;
+}
 
+void Interface_Manager::start_ndi()
+{
+    if (ndi_processor_worker)
+    {
+        ndi_processor_worker->join();
+        delete ndi_processor_worker;
+    }
+    ndi_processor_worker = new std::thread(&Interface_Manager::process_ndi_q_thread, this);
+}
+
+void Interface_Manager::start_decklink()
+{
+    if (decklink_processer_worker)
+    {
+        decklink_processer_worker->join();
+        delete decklink_processer_worker;
+    }
+    decklink_processer_worker = new std::thread(&Interface_Manager::process_decklink_q_thread, this);
 }
 
 void Interface_Manager::stop()
@@ -100,7 +187,6 @@ void Interface_Manager::stop()
     * 2. join threads ...
     * 4. wait for queues to be empty, then exit ...
     */
-
     exit_flag = true; // this will stop the output queues from being added...
 
     if (ndi_processor_worker)
@@ -119,7 +205,8 @@ void Interface_Manager::stop()
 
     std::cout << "Waiting for the streams to wrap up ..." << std::endl;
     // wait for output queues to be empty ...
-    while (!ndi_out_q.empty() || !decklink_out_q.empty()) {}
+    auto start = std::chrono::high_resolution_clock::now();
+    while ((!ndi_out_q.empty() || !decklink_out_q.empty())) {}
 
     return;
 }
@@ -129,7 +216,12 @@ Interface_Manager::~Interface_Manager()
     stop();
 }
 
-Interface_Manager::Interface_Manager()
+Interface_Manager::Interface_Manager(bool start_a)
+    : store_count(10), 
+    decklink_processer_worker(nullptr), 
+    ndi_processor_worker(nullptr),
+    exit_flag(false), frame(nullptr)
 {
-    start();
+    if (start_a)
+        this->start();
 }

@@ -23,9 +23,54 @@ class DeckLinkCard;
 class DeckLinkPlaybackCallback;
 
 
+
+class VideoFrameObj : public IDeckLinkVideoFrame
+{
+private:
+    long width, height, rowBytes;
+    BMDPixelFormat pixelFormat;
+    BMDFrameFlags flags;
+    IDeckLinkVideoFrameAncillary* ancillaryData;
+    void* data;
+    ULONG count = 0;
+
+    void _updateRowBytes();
+
+public:
+    long GetWidth() override { return this->width; }
+    long GetHeight() override { return this->height; }
+    long GetRowBytes() override { return this->rowBytes; }
+    BMDPixelFormat GetPixelFormat() override { return this->pixelFormat; }
+    BMDFrameFlags GetFlags() override { return this->flags; }
+    void SetRowBytes(long bytes); 
+    void SetWidth(long w) { this->width = w; this->_updateRowBytes(); }
+    void SetHeight(long h) { this->height = h; this->_updateRowBytes(); }
+    void SetFrameFlags(BMDFrameFlags f) { this->flags = f; }
+
+    HRESULT GetBytes(void** buffer) override;
+    HRESULT GetTimecode(BMDTimecodeFormat format, IDeckLinkTimecode** timecode) override;
+    HRESULT GetAncillaryData(IDeckLinkVideoFrameAncillary** anc_data) override;
+    HRESULT QueryInterface(REFIID id, void** outputInterface) override;
+    ULONG AddRef() override;
+    ULONG Release() override;
+    void SetPixelFormat(BMDPixelFormat pxF);
+    void _testImageColorOut(); // sets the image white  ;
+    void SetFrameData(const void* fData, size_t s=0);
+    VideoFrameObj(long w, long h, BMDPixelFormat pxFormat, BMDFrameFlags flgs = bmdFrameFlagDefault, void* d = nullptr);
+    ~VideoFrameObj();
+};
+
+// experimental ...
+class MVideoObject : public IDeckLinkMutableVideoFrame
+{
+public:
+    MVideoObject(long w, long h, BMDPixelFormat pxFormat, BMDFrameFlags flgs = bmdFrameFlagDefault, void* d = nullptr);
+};
+
+
 class VideoFrameCallback : public FrameArrivedCallback {
 private:
-    std::queue<IDeckLinkVideoInputFrame*> frames_queue;
+    std::queue<IDeckLinkVideoInputFrame*>* frames_queue;
     bool droppedFrames, init;
     int maxFrameCount;
     uint32_t* pinnedMemory;
@@ -42,19 +87,23 @@ public:
 
     VideoFrameCallback(int mFrameCount = 5);
     void arrived(IDeckLinkVideoInputFrame* frame) override;
-    std::queue<IDeckLinkVideoInputFrame*>* getQueRef() { return(&frames_queue); }
+    void preview_10bit_yuv(IDeckLinkVideoInputFrame* frame);
+    std::queue<IDeckLinkVideoInputFrame*>* getQueRef() { return(frames_queue); }
+    void subscribe_2_q(std::queue<IDeckLinkVideoInputFrame*>* q);
     void convert_10bit_2_rgb(); //cuda_function
-    void unpack_10bit_yuv(); // cuda_function
+    void unpack_10bit_yuv(); // cuda_function 
+
+
     // queue management 
     void clearAll();
     IDeckLinkVideoInputFrame* getFrame();
     IDeckLinkVideoInputFrame* getFrameNoPop();
 
-    size_t queueSize() const { return frames_queue.size(); }
-    void popTop() { frames_queue.pop(); }
-    bool empty() const { return frames_queue.empty(); }
+    size_t queueSize() const { return frames_queue->size(); }
+    void popTop() { frames_queue->pop(); }
+    bool empty() const { return frames_queue->empty(); }
     bool frameDropped() { return droppedFrames; }
-    bool overflow() { return frames_queue.size() == maxFrameCount; }
+    bool overflow() { return frames_queue->size() == maxFrameCount; }
 };
 
 class DeckLinkObject
@@ -81,6 +130,10 @@ protected:
     BMDPixelFormat pixelFormat;
     uint selectedMode;
 
+    std::thread* previewThread;
+
+    bool preview, running;
+
     virtual void enableVideo() = 0;
     virtual bool doesSupportVideoMode() = 0;
     virtual void configure() = 0;
@@ -93,6 +146,8 @@ protected:
     IDeckLink* _GetPortAddr() { return port; }
     IDeckLinkDisplayMode* _GetDisplayModeAddr() { return displayMode; }
     BMDDisplayMode GetDisplayMode() { return displayModes[selectedMode]->GetDisplayMode(); }
+    void enablePreview() { preview = true; }
+    void disablePreview() { preview = false; }
 };
 
 class DeckLinkOutputPort : public IDeckLinkPort
@@ -101,6 +156,11 @@ private:
     IDeckLinkOutput* output;
     IDeckLinkMutableVideoFrame* frame; // Mutable object ???
     DeckLinkPlaybackCallback* cb;
+    std::queue<IDeckLinkVideoFrame*>* frames_q;
+
+    std::thread* rendering_thread;
+    
+    void run();
 
 public:
     void enableVideo() override;
@@ -109,8 +169,14 @@ public:
 
     DeckLinkOutputPort(DeckLinkCard* card, IDeckLink* p, int mode = 0);
     ~DeckLinkOutputPort();
+
     void AddFrame(void* frameBuffer, size_t size = 0);
     void DisplayFrame();
+
+    void subscribe_2_q(std::queue<IDeckLinkVideoFrame*>* q); // this q gives us data to output ...
+    
+    void start();
+    void stop();
 };
 
 
@@ -132,6 +198,8 @@ public:
     void startCapture();
     DeckLinkDevice* _getPort() { return this->deckLinkCap; }
     std::queue<IDeckLinkVideoInputFrame*>* getQRef() { return callback->getQueRef(); }
+
+    void subscribe_2_input_q(std::queue<IDeckLinkVideoInputFrame*>* q);
 
 };
 

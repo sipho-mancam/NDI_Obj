@@ -107,11 +107,14 @@ private:
     NDIlib_recv_create_v3_t recv_desc;
     std::thread* receiver_thread;
     uint32_t delay;
-    std::queue<NDIlib_video_frame_v2_t>* frames;
+    std::queue<NDIlib_video_frame_v2_t*>* frames;
     DeckLinkOutputPort* keyPort;
     DeckLinkOutputPort* fillPort;
     bool connected, running, fillAndKey;
     NDIVideoFrame nFrame;
+
+    NDIlib_video_frame_v2_t* persFrame;
+   
 
     void run() override;
     void splitKeyandFill(cv::Mat& src, cv::Mat& dstA, cv::Mat& dstB /*This must be the alpha channel*/);
@@ -123,14 +126,18 @@ public:
     void disableFillAndKey() { this->fillAndKey = false; }
     void disconnect();
     void setKeyAndFillPorts(DeckLinkOutputPort* f, DeckLinkOutputPort* k);
+
     void connect(std::string s);
-    void subscribeToQueue(std::queue< NDIlib_video_frame_v2_t>* qu);
+    void subscribe_to_q(std::queue<NDIlib_video_frame_v2_t*>* qu);
     void start();
     void stop();
+
     void popFrame();
     void clearAll();
     uint32_t getChannel() { return channel; }
     std::string getSource() { return source; }
+
+
     ~NDI_Recv();
 };
 
@@ -140,7 +147,7 @@ private:
     NDIlib_send_instance_t sender;
     NDIlib_send_create_t desc;
     NDIlib_video_frame_v2_t NDI_video_frame_10bit;
-    std::queue<IDeckLinkVideoInputFrame*>* frames_q;
+    std::queue<NDIlib_video_frame_v2_t>* frames_q;
     std::thread* p_worker;
     bool init_d, running;
     NDIlib_video_frame_v2_t NDI_video_frame_16bit;
@@ -148,13 +155,11 @@ private:
 
 public:
     NDI_Sender(bool* controller, std::string source = "");
+    
     void start();
     void stop();
-    void AddFrame(IDeckLinkVideoInputFrame* frame);
-    void generateFrame(IDeckLinkVideoInputFrame* frame);
-    void update_frame();
     bool isRunning() { return running; }
     void run() override;
-    void subscribe_to_q(std::queue<IDeckLinkVideoInputFrame*>* q);
+    void subscribe_to_q(std::queue<NDIlib_video_frame_v2_t>* q);
     ~NDI_Sender();
 };

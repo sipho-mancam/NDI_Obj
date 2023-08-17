@@ -1,6 +1,152 @@
 #include "decklink_api.hpp"
 
 
+void VideoFrameObj::_updateRowBytes()
+{
+    long w = this->width;
+    switch (this->pixelFormat)
+    {
+    case bmdFormat8BitYUV:
+        rowBytes = (w * 16 / 8);
+        break;
+    case bmdFormat10BitYUV:
+        rowBytes = (long)((w + 47.0) / 48.0) * 128;
+        break;
+    case bmdFormat8BitARGB:
+        rowBytes = (w * 32 / 8);
+        break;
+    case bmdFormat8BitBGRA:
+        rowBytes = (w * 32 / 8);
+        break;
+    case bmdFormat10BitRGB:
+        rowBytes = (long)((w * 63.0) / 64.0) * 256;
+        break;
+    case bmdFormat12BitRGB:
+        rowBytes = (long)((w * 36.0) / 8);
+        break;
+    case bmdFormat12BitRGBLE:
+        rowBytes = (long)((w * 36 / 8.0));
+        break;
+    case bmdFormat10BitRGBXLE:
+        rowBytes = (long)((w + 63.0) / 64.0) * 256;
+        break;
+    case bmdFormat10BitRGBX:
+        rowBytes = (long)((w + 63.0) / 64.0) * 256;
+        break;
+    default:
+        rowBytes = (long)((w * 3)); // assume the frame is a 3 channel 8-bit data channel.
+        break;
+    }
+
+    if (data)
+        free(data);
+
+    data = malloc(static_cast<size_t>(this->rowBytes) * this->height);
+}
+
+HRESULT VideoFrameObj::GetBytes(void** buffer) 
+{
+    if (data != nullptr)
+    {
+        *buffer = data;
+        return S_OK;
+    }
+    *buffer = nullptr;
+    return E_FAIL;
+}
+
+HRESULT VideoFrameObj::GetTimecode(BMDTimecodeFormat format, IDeckLinkTimecode** timecode)
+{
+    *timecode = NULL;
+    return S_OK;
+}
+
+HRESULT VideoFrameObj::GetAncillaryData(IDeckLinkVideoFrameAncillary** anc_data)
+{
+    if (this->ancillaryData == nullptr) return E_FAIL;
+
+    *anc_data = this->ancillaryData;
+    return S_OK;
+}
+
+HRESULT VideoFrameObj::QueryInterface(REFIID id, void** outputInterface)
+{
+    return E_FAIL;
+}
+
+ULONG VideoFrameObj::AddRef()
+{
+    count += 1;
+    return count;
+}
+
+ULONG VideoFrameObj::Release()
+{
+    count--;
+    /*if (count == 0) {
+        free(this->data);
+    }*/
+    return count;
+}
+
+void VideoFrameObj::SetPixelFormat(BMDPixelFormat pxF)
+{
+    this->pixelFormat = pxF;
+    this->_updateRowBytes();
+}
+
+void VideoFrameObj::_testImageColorOut() // sets the image white  ;
+{
+    memset(this->data, 255, static_cast<size_t>(this->rowBytes) * this->height);
+}
+
+void VideoFrameObj::SetRowBytes(long bytes)
+{
+    this->rowBytes = bytes; 
+    if (data)
+        free(data);
+    data = (void*)malloc(rowBytes * height);
+}
+
+void VideoFrameObj::SetFrameData(const void* fData, size_t s)
+{
+    if (s == 0 || s > static_cast<size_t>(this->rowBytes) * this->height)
+    {
+        memcpy(this->data, fData, (static_cast<size_t>(this->rowBytes) * this->height));
+        return;
+    }
+
+    memcpy(this->data, fData, s);
+}
+
+VideoFrameObj::VideoFrameObj(long w, long h, BMDPixelFormat pxFormat, BMDFrameFlags flgs, void* d )
+    : width(w), height(h), pixelFormat(pxFormat), flags(flgs), data(d)
+{
+    ancillaryData = nullptr;
+    this->_updateRowBytes();
+    if (data == nullptr) // allocate memory ...
+    {
+        data = malloc(static_cast<size_t>(this->rowBytes) * this->height);
+    }
+}
+
+VideoFrameObj::~VideoFrameObj()
+{
+    this->Release();
+
+    if (data)
+        free(data);
+}
+
+
+MVideoObject::MVideoObject(long w, long h, BMDPixelFormat pxFormat, BMDFrameFlags flgs, void* d)
+    : IDeckLinkMutableVideoFrame()
+{
+    
+}
+
+
+
 DeckLinkCard::DeckLinkCard()
 {
     result = CoInitializeEx(NULL, COINITBASE_MULTITHREADED);
@@ -121,8 +267,15 @@ HRESULT DeckLinkObject::checkError(std::string info , bool fatal)
 
 
 IDeckLinkPort::IDeckLinkPort(DeckLinkCard* par, IDeckLink* po)
-    : parent(par), port(po), displayMode(nullptr), displayModeIterator(nullptr), pixelFormat(bmdFormat10BitYUV),
-    profileAttributes(nullptr)
+    : parent(par), 
+    port(po), 
+    displayMode(nullptr), 
+    displayModeIterator(nullptr), 
+    pixelFormat(bmdFormat10BitYUV),
+    profileAttributes(nullptr), 
+    selectedMode(0), 
+    preview(false), 
+    previewThread(nullptr)
 {
 }
 
@@ -140,8 +293,13 @@ void IDeckLinkPort::SetPixelFormat(BMDPixelFormat pxF)
 }
 
 DeckLinkOutputPort::DeckLinkOutputPort(DeckLinkCard* par, IDeckLink* por, int mode)
-    : IDeckLinkPort(par, por)
+    : IDeckLinkPort(par, por), 
+    cb(nullptr), 
+    frame(nullptr), 
+    frames_q(nullptr),
+    rendering_thread(nullptr)
 {
+    // mode = 0 (HD) ... mode = 1 (UHD 4K)
     result = port->QueryInterface(IID_IDeckLinkOutput, (void**)&this->output);
     checkError("Creating Output Device pointer...");
 
@@ -168,6 +326,46 @@ DeckLinkOutputPort::DeckLinkOutputPort(DeckLinkCard* par, IDeckLink* por, int mo
 
         // configure the video out ...
         configure();
+    }
+}
+
+void DeckLinkOutputPort::start()
+{
+    running = true;
+    if (rendering_thread)
+    {
+        rendering_thread->join();
+        delete rendering_thread;
+    }
+        
+    rendering_thread = new std::thread(&DeckLinkOutputPort::run, this);
+}
+
+void DeckLinkOutputPort::stop()
+{
+    if (running)
+    {
+        running = false;
+        if (rendering_thread)
+        {
+            rendering_thread->join();
+            delete rendering_thread;
+        }    
+    }
+}
+
+void DeckLinkOutputPort::run()
+{
+    while (running)
+    {
+        if (frames_q != nullptr && !frames_q->empty())
+        {
+            VideoFrameObj* iframe = (VideoFrameObj*)frames_q->front();
+
+            frames_q->pop();
+
+            this->output->DisplayVideoFrameSync(iframe);
+        }
     }
 }
 
@@ -232,12 +430,26 @@ void DeckLinkOutputPort::DisplayFrame()
     this->output->DisplayVideoFrameSync(this->frame);
 }
 
+void DeckLinkOutputPort::subscribe_2_q(std::queue<IDeckLinkVideoFrame*>* q)
+{
+    if (q)
+        frames_q = q;
+}
+
 DeckLinkOutputPort::~DeckLinkOutputPort()
 {
-    if (port)port->Release();
+   // if (port)port->Release();
     if (output)output->Release();
     if (displayModeIterator)displayModeIterator->Release();
     if (profileAttributes)profileAttributes->Release();
+    if (preview && previewThread != nullptr)
+    {
+        previewThread->join();
+        delete previewThread;
+        preview = false;
+    }
+
+    this->stop(); // stop the rendering thread ...
 }
 
 
@@ -255,10 +467,8 @@ DeckLinkInputPort::DeckLinkInputPort(DeckLinkCard* card, IDeckLink* p) : IDeckLi
         {
             displayModes.push_back(displayMode);
         }
-
         result = this->input->QueryInterface(IID_IDeckLinkProfileAttributes, (void**)&profileAttributes);
         assert(result == S_OK);
-
 
         callback = new VideoFrameCallback();
         deckLinkCap = new DeckLinkDevice(p);
@@ -266,6 +476,7 @@ DeckLinkInputPort::DeckLinkInputPort(DeckLinkCard* card, IDeckLink* p) : IDeckLi
         deckLinkCap->init();
 
         deckLinkCap->registerFrameArrivedCallback(callback);
+        selectedMode = 0;
     }
 }
 
@@ -287,6 +498,11 @@ void DeckLinkInputPort::RegisterVideoCallback(FrameArrivedCallback* _cb)
 void DeckLinkInputPort::startCapture()
 {
     assert(deckLinkCap->startCapture(displayModes[selectedMode]->GetDisplayMode(), nullptr, true));
+}
+void DeckLinkInputPort::subscribe_2_input_q(std::queue<IDeckLinkVideoInputFrame*>* q)
+{
+    assert(q);
+    callback->subscribe_2_q(q);
 }
 
 
@@ -401,103 +617,123 @@ VideoFrameCallback::VideoFrameCallback(int mFrameCount) :
     dst_4(nullptr), dst_full(nullptr), buffer(NULL),
     pxFormat(bmdFormatUnspecified),
     rgb_data(nullptr),
-    rgb_data_h(nullptr)
+    rgb_data_h(nullptr),
+    frames_queue(nullptr)
 {}
 
 
 // This is called on a seperate thread ...
-void VideoFrameCallback::arrived(IDeckLinkVideoInputFrame* frame) {
-
-    frames_queue.push(frame);
-    //std::lock_guard<std::mutex> lock(mtx);
-
-    if (pxFormat != frame->GetPixelFormat())
-    {
-        pxFormat = frame->GetPixelFormat();
-
-        if (pinnedMemory != nullptr)
-        {
-            cudaFreeHost(pinnedMemory);
-            cudaFree(gpuMemory);
-
-            if (dst_4 != nullptr)
-            {
-                cudaFree(dst_4);
-                cudaFree(dst_full);
-            }
-        }
-
-        assert(cudaSuccess == cudaMallocHost((void**)&pinnedMemory, frame->GetHeight() * frame->GetWidth() * sizeof(uint)));
-        assert(cudaSuccess == cudaMalloc((void**)&gpuMemory, frame->GetRowBytes() * frame->GetHeight()));
-
-        assert(cudaSuccess == cudaMalloc((void**)&rgb_data, frame->GetWidth() * frame->GetHeight() * sizeof(uchar3)));
-        assert(cudaSuccess == cudaMallocHost((void**)&rgb_data_h, frame->GetWidth() * frame->GetHeight() * sizeof(uchar3)));
-        // this assumes we are receiving YUV data at 10bits.
-        switch (frame->GetPixelFormat())
-        {
-        case bmdFormat10BitYUV:
-        {
-            assert(cudaSuccess == cudaMalloc((void**)&dst_4, frame->GetHeight() * (frame->GetWidth() / 2) * sizeof(uint4)));
-            assert(cudaSuccess == cudaMalloc((void**)&dst_full, frame->GetHeight() * frame->GetWidth() * sizeof(uint)));
-            break;
-        }
-        case bmdFormat8BitYUV:
-        {
-            assert(cudaSuccess == cudaMalloc((void**)&dst_4, frame->GetHeight() * (frame->GetWidth() / 2) * sizeof(uint4)));
-            assert(cudaSuccess == cudaMalloc((void**)&dst_full, frame->GetHeight() * frame->GetWidth() * sizeof(uint)));
-            break;
-        }
-        }
-    }
-
+void VideoFrameCallback::arrived(IDeckLinkVideoInputFrame* frame) 
+{
+    auto start = std::chrono::high_resolution_clock::now();
+    // interogate the frame to decide how to process it ...
     width = frame->GetWidth();
     height = frame->GetHeight();
 
+    switch (frame->GetPixelFormat())
+    {
+    case bmdFormat10BitYUV:
+    {
+        // from here we received the frame, now send it to the Interface_manager.
+        if(frames_queue)
+            frames_queue->push(frame); // pass it to the interface_manager
+
+        //preview_10bit_yuv(frame);
+        // set this to preview on a seperate thread ... 
+        break;
+    }
+    case bmdFormat8BitYUV:
+    {
+        std::cout << "8-bit YUV received" << std::endl;
+        break;
+    }
+    case bmdFormat10BitRGB:
+    {
+        std::cout << "10-bit RGB received" << std::endl;
+        break;
+    }
+
+    case bmdFormat8BitBGRA:
+    {
+        std::cout << "8-bit BGRA received" << std::endl;
+        break;
+    }
+    case bmdFormat12BitRGB:
+    {
+        std::cout << "12-bit RGB received" << std::endl;
+        break;
+    }
+    }
+
+    auto end = std::chrono::high_resolution_clock::now();
+    //std::cout << (end - start).count() / 1000000 << " ms" << std::endl;
+    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+}
+
+void VideoFrameCallback::clearAll()
+{
+    while (!frames_queue->empty())
+        frames_queue->pop();
+}
+
+void VideoFrameCallback::subscribe_2_q(std::queue<IDeckLinkVideoInputFrame*>* q)
+{
+    frames_queue = q;
+}
+
+void VideoFrameCallback::preview_10bit_yuv(IDeckLinkVideoInputFrame* frame)
+{
+    cudaMallocHost((void**)&pinnedMemory, frame->GetHeight() * frame->GetWidth() * sizeof(uint));
+    cudaMalloc((void**)&gpuMemory, frame->GetRowBytes() * frame->GetHeight());
+
+    cudaMalloc((void**)&rgb_data, frame->GetWidth() * frame->GetHeight() * sizeof(uchar3));
+    cudaMallocHost((void**)&rgb_data_h, frame->GetWidth() * frame->GetHeight() * sizeof(uchar3));
+
+    cudaMalloc((void**)&dst_4, frame->GetHeight() * (frame->GetWidth() / 2) * sizeof(uint4));
+    
     if (S_OK == frame->GetBytes((void**)&buffer))
     {
         cudaError_t cudaStatus = cudaMemcpy(gpuMemory, buffer, frame->GetRowBytes() * frame->GetHeight(), cudaMemcpyHostToDevice);
 
         assert(cudaStatus == cudaSuccess);
-
-        switch (frame->GetPixelFormat())
-        {
-        case bmdFormat10BitYUV:
-        {
-            //std::cout << "I received data" << std::endl;
-            this->unpack_10bit_yuv();
-            convert_10bit_2_rgb();
-            cv::namedWindow("Preview", cv::WINDOW_NORMAL);
-            cv::Mat preview(cv::Size(width, height), CV_8UC3);
-
-
-            // from here we build the NDI sender ....
-            preview.data = (uchar*)rgb_data_h;
-
-            cv::imshow("Preview", preview);
-            cv::waitKey(2);
-            break;
-        }
-
-        }
     }
-}
+    else {
+        return;
+    }
+    
 
-void VideoFrameCallback::clearAll()
-{
-    while (!frames_queue.empty())
-        frames_queue.pop();
+
+    this->unpack_10bit_yuv();
+
+    convert_10bit_2_rgb();
+
+    cv::namedWindow("Preview", cv::WINDOW_NORMAL);
+    cv::Mat preview(cv::Size(width, height), CV_8UC3);
+
+    // from here we build the NDI sender ....
+    preview.data = (uchar*)rgb_data_h;
+
+    cv::imshow("Preview", preview);
+    cv::waitKey(2);
+
+    cudaFree(gpuMemory);
+    cudaFree(rgb_data);
+    cudaFree(dst_4);
+
+    cudaFreeHost(pinnedMemory);
+    cudaFreeHost(rgb_data_h);
 }
 
 IDeckLinkVideoInputFrame* VideoFrameCallback::getFrame()
 {
-    if (frames_queue.empty()) return nullptr;
-    IDeckLinkVideoInputFrame* temp = frames_queue.front();
-    frames_queue.pop();
+    if (frames_queue->empty()) return nullptr;
+    IDeckLinkVideoInputFrame* temp = frames_queue->front();
+    frames_queue->pop();
     return temp;
 }
 
 IDeckLinkVideoInputFrame* VideoFrameCallback::getFrameNoPop()
 {
-    if (frames_queue.empty()) return nullptr;
-    return frames_queue.front();
+    if (frames_queue->empty()) return nullptr;
+    return frames_queue->front();
 }

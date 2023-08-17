@@ -122,7 +122,8 @@ void NDI_Recv::run()
 {
 
     if (!frames)
-        frames = new std::queue<NDIlib_video_frame_v2_t>();
+        frames = new std::queue<NDIlib_video_frame_v2_t*>();
+
     cv::Mat preview;
     while (!(*exit) && running)
     {
@@ -138,7 +139,7 @@ void NDI_Recv::run()
             // Video data
         case NDIlib_frame_type_video:
         {
-            if (fillAndKey)
+            if (fillAndKey && fillPort != nullptr && keyPort != nullptr)
             {
                 uint* yuvFill;
                 uchar* gBgra;
@@ -156,23 +157,50 @@ void NDI_Recv::run()
 
                 cudaFreeHost(key_packed);
                 cudaFreeHost(yuvFill);
+
+                NDIlib_recv_free_video_v2(rec_instance, &video_frame);
+                continue;
             }
-
-            frames->push(video_frame);
-
-            // Double check that we are running sufficiently well
-            NDIlib_recv_queue_t recv_queue;
-            NDIlib_recv_get_queue(rec_instance, &recv_queue);
-            if (recv_queue.video_frames > 2) {
-                // Display the frames per second
-                printf("Channel %d queue depth is %d.\n", channel, recv_queue.video_frames);
-            }
-
-            if (frames->size() > delay)
+            if (persFrame->line_stride_in_bytes != video_frame.line_stride_in_bytes)
             {
-                NDIlib_recv_free_video_v2(rec_instance, (NDIlib_video_frame_v2_t*)&frames->front());
-                frames->pop();
+                persFrame->xres = video_frame.xres;
+                persFrame->yres = video_frame.yres;
+                persFrame->data_size_in_bytes = video_frame.data_size_in_bytes;
+                persFrame->line_stride_in_bytes = video_frame.line_stride_in_bytes;
+                persFrame->FourCC = video_frame.FourCC;
+                persFrame->frame_format_type = video_frame.frame_format_type;
+                persFrame->timecode = video_frame.timecode;
+                persFrame->timestamp = video_frame.timestamp;
+                persFrame->p_metadata = video_frame.p_metadata;
+                persFrame->frame_rate_D = video_frame.frame_rate_D;
+                persFrame->frame_rate_N = video_frame.frame_rate_N;
+                persFrame->picture_aspect_ratio = video_frame.picture_aspect_ratio;
+
+                if (persFrame->p_data)
+                    delete persFrame->p_data; 
+                persFrame->p_data = nullptr;
             }
+            
+
+            if(persFrame->p_data == nullptr)
+                persFrame->p_data = (uint8_t*) new uint8_t[video_frame.line_stride_in_bytes * video_frame.yres];
+
+            memcpy(persFrame->p_data, video_frame.p_data, video_frame.line_stride_in_bytes * video_frame.yres);
+
+            if(frames)
+                frames->push(persFrame);
+            // Double check that we are running sufficiently well
+            //NDIlib_recv_queue_t recv_queue;
+            //NDIlib_recv_get_queue(rec_instance, &recv_queue);
+            //if (recv_queue.video_frames > 2) {
+            //    // Display the frames per second
+            //    printf("Channel %d queue depth is %d.\n", channel, recv_queue.video_frames);
+            //}
+
+            NDIlib_recv_free_video_v2(rec_instance, &video_frame);
+
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            
             break;
         }
 
@@ -212,8 +240,24 @@ NDI_Recv::NDI_Recv(bool* controller, uint32_t c, std::string s)
     fillAndKey(false),
     running(false),
     fillPort(nullptr),
-    keyPort(nullptr)
+    keyPort(nullptr), 
+    persFrame(nullptr)
 {
+
+    persFrame = new NDIlib_video_frame_v2_t(0,0);
+    persFrame->p_data = nullptr;
+    persFrame->xres = 0;
+    persFrame->yres = 0;
+    persFrame->data_size_in_bytes = 0;
+    persFrame->line_stride_in_bytes = 0;
+    persFrame->timecode = 0;
+    persFrame->timestamp = 0;
+    persFrame->p_metadata = 0;
+    persFrame->frame_rate_D = 0;
+    persFrame->frame_rate_N = 0;
+    persFrame->picture_aspect_ratio = 0;
+
+
     if (channel == -1)
         channel = id + 10;
 
@@ -269,7 +313,7 @@ void NDI_Recv::connect(std::string s)
     std::cout << "Connected ..." << std::endl;
 }
 
-void NDI_Recv::subscribeToQueue(std::queue< NDIlib_video_frame_v2_t>* qu)
+void NDI_Recv::subscribe_to_q(std::queue< NDIlib_video_frame_v2_t*>* qu)
 {
     frames = qu;
 }
@@ -312,6 +356,8 @@ NDI_Recv::~NDI_Recv()
     NDIlib_recv_destroy(rec_instance);
 }
 
+
+
 NDI_Sender::NDI_Sender(bool* controller, std::string source)
     : NDI_Obj(controller), sender(NULL), p_worker(nullptr), init_d(false), running(false), frames_q(nullptr)
 {
@@ -346,80 +392,23 @@ void NDI_Sender::stop()
     }
 }
 
-void NDI_Sender::AddFrame(IDeckLinkVideoInputFrame* frame)
-{
-    if (frames_q == nullptr)
-    {
-        frames_q = new std::queue<IDeckLinkVideoInputFrame*>();
-    }
-    frames_q->push(frame);
-}
-
-void NDI_Sender::generateFrame(IDeckLinkVideoInputFrame* frame)
-{
-    if (!frame) return;
-
-    if (!init_d || NDI_video_frame_10bit.xres != frame->GetWidth()) // resolution isn't set or it changed ...
-    {
-        NDI_video_frame_10bit.xres = frame->GetWidth();
-        NDI_video_frame_10bit.yres = frame->GetHeight();
-        NDI_video_frame_10bit.FourCC = (NDIlib_FourCC_video_type_e)NDI_LIB_FOURCC('V', '2', '1', '0');
-        NDI_video_frame_10bit.line_stride_in_bytes = frame->GetRowBytes();
-        NDI_video_frame_10bit.frame_rate_N = 50000;
-        NDI_video_frame_10bit.frame_rate_D = 1000;
-        NDI_video_frame_10bit.frame_format_type = NDIlib_frame_format_type_progressive;
-        NDI_video_frame_10bit.picture_aspect_ratio = 16.0f / 9.0f;
-        NDI_video_frame_10bit.timecode = NDIlib_send_timecode_synthesize;
-
-        uchar* buf;
-        frame->GetBytes((void**)&buf);
-        NDI_video_frame_10bit.p_data = (uint8_t*)malloc(frame->GetRowBytes() * frame->GetHeight());
-        memcpy(NDI_video_frame_10bit.p_data, buf, static_cast<size_t>(frame->GetRowBytes()) * frame->GetHeight());
-
-        NDI_video_frame_16bit.xres = NDI_video_frame_10bit.xres;
-        NDI_video_frame_16bit.yres = NDI_video_frame_10bit.yres;
-
-        NDI_video_frame_16bit.line_stride_in_bytes = NDI_video_frame_16bit.xres * sizeof(uint16_t);
-        NDI_video_frame_16bit.p_data = (uint8_t*)malloc(NDI_video_frame_16bit.line_stride_in_bytes * 2 * NDI_video_frame_16bit.yres);
-
-        // Convert into the destination
-        NDIlib_util_V210_to_P216(&NDI_video_frame_10bit, &NDI_video_frame_16bit);
-
-        init_d = true;
-
-        //frame->Release();
-    }
-    else {
-
-        uchar* buf;
-        frame->GetBytes((void**)&buf);
-        memcpy(NDI_video_frame_10bit.p_data, buf, static_cast<size_t>(frame->GetRowBytes()) * frame->GetHeight());
-        NDIlib_util_V210_to_P216(&NDI_video_frame_10bit, &NDI_video_frame_16bit);
-
-        // frame->Release();
-    }
-}
-
-void NDI_Sender::update_frame()
-{
-    if (frames_q && !frames_q->empty())
-    {
-        generateFrame(frames_q->front());
-        std::lock_guard<std::mutex> lock(mtx);
-        frames_q->pop();
-    }
-}
-
 void NDI_Sender::run()
 {
     while (!(*this->exit) && running)
     {
-        update_frame();
-        NDIlib_send_send_video_v2(sender, &NDI_video_frame_16bit);
+        if (frames_q && !frames_q->empty())
+        {
+            NDI_video_frame_16bit = frames_q->front();
+            NDIlib_send_send_video_v2(sender, &NDI_video_frame_16bit);
+            frames_q->pop();
+            free(NDI_video_frame_16bit.p_data);
+
+        }
+        
     }
 }
 
-void NDI_Sender::subscribe_to_q(std::queue<IDeckLinkVideoInputFrame*>* q)
+void NDI_Sender::subscribe_to_q(std::queue<NDIlib_video_frame_v2_t>* q)
 {
     if (q)
     {
