@@ -625,6 +625,8 @@ VideoFrameCallback::VideoFrameCallback(int mFrameCount) :
 // This is called on a seperate thread ...
 void VideoFrameCallback::arrived(IDeckLinkVideoInputFrame* frame) 
 {
+    // make the frame persistent until released...
+    frame->AddRef();
     auto start = std::chrono::high_resolution_clock::now();
     // interogate the frame to decide how to process it ...
     width = frame->GetWidth();
@@ -666,8 +668,7 @@ void VideoFrameCallback::arrived(IDeckLinkVideoInputFrame* frame)
     }
 
     auto end = std::chrono::high_resolution_clock::now();
-    //std::cout << (end - start).count() / 1000000 << " ms" << std::endl;
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+   
 }
 
 void VideoFrameCallback::clearAll()
