@@ -40,15 +40,10 @@ void Interface_Manager::process_decklink_q_thread()
     {
         if (!decklink_in_q.empty())
         {
-            auto start = std::chrono::high_resolution_clock::now();
             IDeckLinkVideoInputFrame* frame = decklink_in_q.front();
             decklink_in_q.pop(); // manage the queue memory
             NDIlib_video_frame_v2_t ndi_frame = convert_decklink_2_ndi_frame(frame);
             ndi_out_q.push(ndi_frame);
-            
-            auto end = std::chrono::high_resolution_clock::now();
-            //std::cout << (end - start).count() / 1000000 << " ms" << std::endl;
-
         }
     }
 }
@@ -63,7 +58,7 @@ void Interface_Manager::process_ndi_q_thread()
             NDIlib_video_frame_v2_t* frame = ndi_in_q.front();
             ndi_in_q.pop();
             IDeckLinkVideoFrame* deck_frame = convert_ndi_2_decklink_frame(frame);
-            decklink_out_q.push(deck_frame); 
+            decklink_out_q.push(deck_frame);
         }
     }
 }
