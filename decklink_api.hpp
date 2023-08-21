@@ -23,6 +23,9 @@ class DeckLinkCard;
 class DeckLinkPlaybackCallback;
 
 
+static std::chrono::steady_clock::time_point start_clock, stop_clock;
+
+
 
 class VideoFrameObj : public IDeckLinkVideoFrame
 {

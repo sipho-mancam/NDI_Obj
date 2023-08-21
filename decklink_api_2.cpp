@@ -365,6 +365,10 @@ void DeckLinkOutputPort::run()
             frames_q->pop();
 
             this->output->DisplayVideoFrameSync(iframe);
+
+            stop_clock = std::chrono::high_resolution_clock::now();
+
+            //std::cout << ((stop_clock - start_clock).count() / 1000000) << " ms" << std::endl;
         }
     }
 }
@@ -625,6 +629,7 @@ VideoFrameCallback::VideoFrameCallback(int mFrameCount) :
 // This is called on a seperate thread ...
 void VideoFrameCallback::arrived(IDeckLinkVideoInputFrame* frame) 
 {
+    start_clock = std::chrono::high_resolution_clock::now();
     frame->AddRef();
     // interogate the frame to decide how to process it ...
     width = frame->GetWidth();

@@ -60,13 +60,18 @@ void Discovery::run() // run the discovery until we are told to stop
                 saved_sources.insert(std::string(sources[i].p_ndi_name));
         }
     }
+
+    std::cout << "Service stopped" << std::endl;
 }
 
 void Discovery::start()
 {
-    this->status = true;
-    running = true;
-    threadI = new std::thread(&Discovery::run, this);
+    if (threadI == nullptr)
+    {
+        this->status = true;
+        running = true;
+        threadI = new std::thread(&Discovery::run, this);
+    } 
 }
 
 void Discovery::stop() {

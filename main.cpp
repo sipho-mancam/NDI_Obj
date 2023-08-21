@@ -3,6 +3,37 @@
 #include "decklink_api.hpp"
 
 
+#include <fstream>
+#include <iostream>
+#include <ctime>
+
+void log_to_file()
+{
+    std::ofstream log_file("C:\\Users\\Chroma2\\Documents\\ndi_deck_log.txt");
+
+    auto start = std::chrono::high_resolution_clock::now();
+    char buf[256];
+    while (true)
+    {
+      
+        if ((std::chrono::high_resolution_clock::now() - start) >= std::chrono::seconds(1))
+        {
+            time_t curr_time;
+            curr_time = time(NULL);
+
+            tm* tm_local = localtime(&curr_time);
+
+            sprintf(buf, "[ %d: %d: %d]: Time log.", tm_local->tm_hour, tm_local->tm_min, tm_local->tm_sec);
+            
+            log_file << buf << std::endl;
+            memset(buf, 0, 256);
+
+            start = std::chrono::high_resolution_clock::now();
+        } 
+    }
+}
+
+
 
 int main()
 {
@@ -44,6 +75,9 @@ int main()
 
     int console_key = 0, choice = 0;
 
+    //std::thread logger(&log_to_file);
+
+
     while (!exit_flag)
     {
 
@@ -83,6 +117,8 @@ int main()
 
                 receiver->start();
                 std::cin.clear();
+
+                discovery->stop();
                 break;
             }
 
@@ -99,12 +135,15 @@ int main()
         }
     }
 
+    
 
     delete discovery;
     //delete video_out;
     delete receiver;
     delete sender;
     delete card;
+
+    //logger.join();
 
 
     clean_up();

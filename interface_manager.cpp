@@ -41,8 +41,8 @@ void Interface_Manager::process_decklink_q_thread()
         if (!decklink_in_q.empty())
         {
             IDeckLinkVideoInputFrame* frame = decklink_in_q.front();
-            decklink_in_q.pop(); // manage the queue memory
             NDIlib_video_frame_v2_t ndi_frame = convert_decklink_2_ndi_frame(frame);
+            decklink_in_q.pop(); // manage the queue memory
             ndi_out_q.push(ndi_frame);
         }
     }
@@ -56,8 +56,8 @@ void Interface_Manager::process_ndi_q_thread()
         if (!ndi_in_q.empty())
         {
             NDIlib_video_frame_v2_t* frame = ndi_in_q.front();
-            ndi_in_q.pop();
             IDeckLinkVideoFrame* deck_frame = convert_ndi_2_decklink_frame(frame);
+            ndi_in_q.pop();
             decklink_out_q.push(deck_frame);
         }
     }

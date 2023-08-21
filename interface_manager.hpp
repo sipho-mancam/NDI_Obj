@@ -18,7 +18,7 @@ private:
 
     std::thread* ndi_processor_worker;
     std::thread* decklink_processer_worker;
-
+    
     bool exit_flag;
     long store_count;
 
