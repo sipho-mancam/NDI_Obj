@@ -99,7 +99,7 @@ public:
 
 
 class NDI_Recv : public NDI_Obj {
-private:
+protected:
     std::string source;
     uint32_t channel;
     NDIlib_source_t s_connect;
@@ -162,4 +162,21 @@ public:
     void run() override;
     void subscribe_to_q(std::queue<NDIlib_video_frame_v2_t>* q);
     ~NDI_Sender();
+};
+
+
+class NDI_Key_And_Fill : public NDI_Recv {
+private:
+
+    void run() override;
+
+public:
+
+    NDI_Key_And_Fill(bool* controller, uint32_t c = -1, std::string s = "");
+    void enableFillAndKey() { this->fillAndKey = true; }
+    void disableFillAndKey() { this->fillAndKey = false; }
+    void setKeyAndFillPorts(DeckLinkOutputPort* f, DeckLinkOutputPort* k);
+
+    ~NDI_Key_And_Fill();
+
 };

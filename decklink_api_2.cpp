@@ -406,7 +406,34 @@ void DeckLinkOutputPort::configure()
 
 void DeckLinkOutputPort::AddFrame(void* frameBuffer, size_t size)
 {
-    
+    if (!frame)
+    {
+        IDeckLinkDisplayMode* d_mode = displayModes[selectedMode];
+        result = output->CreateVideoFrame(
+            d_mode->GetWidth(), 
+            d_mode->GetHeight(), 
+            d_mode->GetWidth()*2, 
+            bmdFormat8BitYUV,
+            bmdFrameFlagDefault, 
+            &frame);
+
+        if (result != S_OK)
+        {
+            frame = nullptr;
+            return;
+        }
+        else {
+            uchar* buffer;
+            frame->GetBytes((void**) & buffer);
+            memcpy(buffer, frameBuffer, size);
+        }
+        
+    }
+    else {
+        uchar* buffer;
+        frame->GetBytes((void**)&buffer);
+        memcpy(buffer, frameBuffer, size);
+    }
     BOOL playback_running;
 
     this->output->IsScheduledPlaybackRunning(&playback_running);
@@ -535,7 +562,7 @@ HRESULT DeckLinkPlaybackCallback::ScheduledFrameCompleted(IDeckLinkVideoFrame* c
         m_port->ScheduleVideoFrame(frames_q.front(), timeValue, f_duration, scale);
         frames_q.pop();
     }
-    std::cout << frames_q.size() << std::endl;
+    //std::cout << frames_q.size() << std::endl;
 
     return S_OK;
 }

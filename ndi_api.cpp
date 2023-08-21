@@ -430,3 +430,77 @@ NDI_Sender::~NDI_Sender()
     // free some other buffers here
     NDIlib_send_destroy(sender);
 }
+
+
+void NDI_Key_And_Fill::setKeyAndFillPorts(DeckLinkOutputPort* f, DeckLinkOutputPort* k)
+{
+    this->keyPort = k;
+    this->fillPort = f;
+    //this->fillPort->SetPixelFormat(bmdFormat8BitBGRA);
+}
+
+
+
+NDI_Key_And_Fill::NDI_Key_And_Fill(bool* controller, uint32_t c, std::string s)
+    : NDI_Recv(controller, c, s)
+{
+    enableFillAndKey();
+}
+
+void NDI_Key_And_Fill::run()
+{
+    while (!(*exit) && running)
+    {
+        // The descriptors
+        NDIlib_video_frame_v2_t video_frame;
+        NDIlib_audio_frame_v2_t audio_frame;
+        NDIlib_metadata_frame_t metadata_frame;
+
+        switch (NDIlib_recv_capture_v2(rec_instance, &video_frame, NULL, &metadata_frame, timeout)) {
+            // No data
+        case NDIlib_frame_type_none:
+            break;
+            // Video data
+        case NDIlib_frame_type_video:
+        {
+            if (fillPort != nullptr && keyPort != nullptr)
+            {
+                uint* yuvFill;
+                uchar* gBgra;
+                gBgra = get_yuv_from_bgr_packed(video_frame.xres, video_frame.yres, video_frame.p_data, &yuvFill);
+
+                uchar* alpha_channel;
+                get_alpha_channel_gpu(video_frame.xres, video_frame.yres, gBgra, &alpha_channel);
+
+                uint* key_packed;
+                alpha_2_decklink_gpu(video_frame.xres, video_frame.yres, alpha_channel, &key_packed);
+
+                fillPort->AddFrame(yuvFill, sizeof(uint) * (video_frame.xres / 2) * (video_frame.yres));
+
+                keyPort->AddFrame(key_packed, sizeof(uint) * (video_frame.xres / 2) * (video_frame.yres));
+
+                cudaFreeHost(key_packed);
+                cudaFreeHost(yuvFill);
+
+                NDIlib_recv_free_video_v2(rec_instance, &video_frame);
+                continue;
+            }
+
+            NDIlib_recv_free_video_v2(rec_instance, &video_frame);
+            break;
+        }
+
+        // Meta data
+        case NDIlib_frame_type_metadata:
+            NDIlib_recv_free_metadata(rec_instance, &metadata_frame);
+            break;
+            // There is a status change on the receiver (e.g. new web interface)
+        case NDIlib_frame_type_status_change:
+            printf("Receiver connection status changed.\n");
+            break;
+            // Everything else
+        default:
+            break;
+        }
+    }
+}

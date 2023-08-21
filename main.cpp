@@ -40,33 +40,36 @@ int main()
     init();
     bool exit_flag = false;
 
-    Interface_Manager interface_manager;
+    /*Interface_Manager interface_manager;
     interface_manager.start_decklink();
-    interface_manager.start_ndi();
+    interface_manager.start_ndi();*/
     DeckLinkCard* card = new DeckLinkCard();
 
     // this configures port 0 and 1 as output and gives you a handle to it
-    //DeckLinkOutputPort* fillPort = card->SelectOutputPort(0);
-    //DeckLinkOutputPort* keyPort = card->SelectOutputPort(1);
+    DeckLinkOutputPort* fillPort = card->SelectOutputPort(0, 0);
+    DeckLinkOutputPort* keyPort = card->SelectOutputPort(1, 0);
 
-    DeckLinkInputPort* inputPort = card->SelectInputPort(3);
-    assert(inputPort != nullptr);
-    inputPort->subscribe_2_input_q(interface_manager.getDeckLinkInputQ());
-    inputPort->startCapture();
+    NDI_Key_And_Fill* key_and_fill = new NDI_Key_And_Fill(&exit_flag, 1, "");
 
-    DeckLinkOutputPort* video_out = card->SelectOutputPort(2);
-    video_out->subscribe_2_q(interface_manager.getDeckLinkOutputQ());
-    video_out->start();    
-    
-    NDI_Sender* sender = new NDI_Sender(&exit_flag, "");
-    sender->subscribe_to_q(interface_manager.getNDIOutputQ());
-    sender->start();
+    key_and_fill->setKeyAndFillPorts(fillPort, keyPort);
 
-    NDI_Recv* receiver = new NDI_Recv(&exit_flag, 0);
-    receiver->subscribe_to_q(interface_manager.getNDIInputQ());
-    //receiver->setKeyAndFillPorts(fillPort, keyPort);
-    //receiver->enableFillAndKey();
+    //DeckLinkInputPort* inputPort = card->SelectInputPort(3);
+    //assert(inputPort != nullptr);
+    //inputPort->subscribe_2_input_q(interface_manager.getDeckLinkInputQ());
+    //inputPort->startCapture();
 
+    //DeckLinkOutputPort* video_out = card->SelectOutputPort(2);
+    //video_out->subscribe_2_q(interface_manager.getDeckLinkOutputQ());
+    //video_out->start();    
+    //
+    //NDI_Sender* sender = new NDI_Sender(&exit_flag, "");
+    //sender->subscribe_to_q(interface_manager.getNDIOutputQ());
+    //sender->start();
+
+    //NDI_Recv* receiver = new NDI_Recv(&exit_flag, 0);
+    //receiver->subscribe_to_q(interface_manager.getNDIInputQ());
+    ////receiver->setKeyAndFillPorts(fillPort, keyPort);
+    ////receiver->enableFillAndKey();
     auto start = std::chrono::high_resolution_clock::now();
 
     Discovery* discovery = new Discovery(&exit_flag);
@@ -76,7 +79,6 @@ int main()
     int console_key = 0, choice = 0;
 
     //std::thread logger(&log_to_file);
-
 
     while (!exit_flag)
     {
@@ -98,7 +100,7 @@ int main()
             case 's':
             {
 
-                receiver->stop();
+                key_and_fill->stop();
                 system("cls");
                 // show the most recent list...
                 discovery->showMeList();
@@ -112,10 +114,10 @@ int main()
                     _getch();
                 }
                 else {
-                    receiver->connect(s);
+                    key_and_fill->connect(s);
                 }
 
-                receiver->start();
+                key_and_fill->start();
                 std::cin.clear();
 
                 discovery->stop();
@@ -134,14 +136,11 @@ int main()
             }
         }
     }
-
-    
-
-    delete discovery;
-    //delete video_out;
-    delete receiver;
-    delete sender;
-    delete card;
+    //delete discovery;
+    ////delete video_out;
+    //delete receiver;
+    //delete sender;
+    //delete card;
 
     //logger.join();
 

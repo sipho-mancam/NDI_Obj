@@ -359,6 +359,7 @@ uchar* get_yuv_from_bgr_packed(long width, long height, uchar* bgra, uint** outp
 
 	assert(cudaSuccess == cudaMalloc((void**)&in_gpu_buf, bgra_size));
 	assert(cudaSuccess == cudaMemcpy(in_gpu_buf, bgra, bgra_size, cudaMemcpyHostToDevice));
+
 	// BGRA data is now in device memory. ...
 	assert(cudaSuccess == cudaMalloc((void**)&out_yuv, yuv_size));
 	assert(cudaSuccess == cudaMallocHost((void**)&pinned_yuv, yuv_size));
@@ -380,7 +381,6 @@ uchar* get_yuv_from_bgr_packed(long width, long height, uchar* bgra, uint** outp
 	cudaFree(out_yuv);
 
 	return in_gpu_buf;
-
 }
 
 
