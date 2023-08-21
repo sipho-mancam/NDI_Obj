@@ -275,7 +275,8 @@ IDeckLinkPort::IDeckLinkPort(DeckLinkCard* par, IDeckLink* po)
     profileAttributes(nullptr), 
     selectedMode(0), 
     preview(false), 
-    previewThread(nullptr)
+    previewThread(nullptr), 
+    running(false)
 {
 }
 
@@ -361,13 +362,9 @@ void DeckLinkOutputPort::run()
         if (frames_q != nullptr && !frames_q->empty())
         {
             VideoFrameObj* iframe = (VideoFrameObj*)frames_q->front();
-
-            frames_q->pop();
-
             this->output->DisplayVideoFrameSync(iframe);
-
+            frames_q->pop();
             stop_clock = std::chrono::high_resolution_clock::now();
-
             //std::cout << ((stop_clock - start_clock).count() / 1000000) << " ms" << std::endl;
         }
     }
@@ -434,7 +431,23 @@ void DeckLinkOutputPort::AddFrame(void* frameBuffer, size_t size)
         frame->GetBytes((void**)&buffer);
         memcpy(buffer, frameBuffer, size);
     }
-    BOOL playback_running;
+
+    if (frames_q == nullptr)
+    {
+        frames_q = new std::queue<IDeckLinkVideoFrame*>();
+        frames_q->push(frame);
+    }
+    else {
+       
+        frames_q->push(frame);
+    }
+
+    if(!running)
+       start();
+
+    //this->output->DisplayVideoFrameSync(frame);
+
+   /* BOOL playback_running;
 
     this->output->IsScheduledPlaybackRunning(&playback_running);
 
@@ -453,7 +466,7 @@ void DeckLinkOutputPort::AddFrame(void* frameBuffer, size_t size)
     }
     else {
         cb->addFrame(frame);
-    }
+    }*/
 }
 
 void DeckLinkOutputPort::DisplayFrame()
@@ -552,9 +565,9 @@ HRESULT DeckLinkPlaybackCallback::ScheduledFrameCompleted(IDeckLinkVideoFrame* c
     {
         if (m_port->GetFrameCompletionReferenceTimestamp(completedFrame, scale, &frameCompletionTimestamp) == S_OK)
         {
-            std::lock_guard<std::mutex> lock(m_mutex);
-
+            //std::lock_guard<std::mutex> lock(m_mutex);
         }
+        //std::cout << frames_q.size() << std::endl;
     }
 
     if (!frames_q.empty())
@@ -562,7 +575,6 @@ HRESULT DeckLinkPlaybackCallback::ScheduledFrameCompleted(IDeckLinkVideoFrame* c
         m_port->ScheduleVideoFrame(frames_q.front(), timeValue, f_duration, scale);
         frames_q.pop();
     }
-    //std::cout << frames_q.size() << std::endl;
 
     return S_OK;
 }
