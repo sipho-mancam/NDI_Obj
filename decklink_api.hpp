@@ -160,7 +160,7 @@ private:
     IDeckLinkMutableVideoFrame* frame; // Mutable object ???
     DeckLinkPlaybackCallback* cb;
     std::queue<IDeckLinkVideoFrame*>* frames_q;
-
+    //BMDPixelFormat pixelFormat;
     std::thread* rendering_thread;
     
     void run();
@@ -177,6 +177,7 @@ public:
     void DisplayFrame();
 
     void subscribe_2_q(std::queue<IDeckLinkVideoFrame*>* q); // this q gives us data to output ...
+    void setPixelFormat(BMDPixelFormat f) { pixelFormat = f; }
     
     void start();
     void stop();

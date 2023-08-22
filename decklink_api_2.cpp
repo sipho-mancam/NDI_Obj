@@ -271,7 +271,7 @@ IDeckLinkPort::IDeckLinkPort(DeckLinkCard* par, IDeckLink* po)
     port(po), 
     displayMode(nullptr), 
     displayModeIterator(nullptr), 
-    pixelFormat(bmdFormat10BitYUV),
+    pixelFormat(bmdFormat8BitYUV),
     profileAttributes(nullptr), 
     selectedMode(0), 
     preview(false), 
@@ -405,12 +405,13 @@ void DeckLinkOutputPort::AddFrame(void* frameBuffer, size_t size)
 {
     if (!frame)
     {
+        
         IDeckLinkDisplayMode* d_mode = displayModes[selectedMode];
         result = output->CreateVideoFrame(
             d_mode->GetWidth(), 
             d_mode->GetHeight(), 
             d_mode->GetWidth()*2, 
-            bmdFormat8BitYUV,
+            pixelFormat,
             bmdFrameFlagDefault, 
             &frame);
 
@@ -428,9 +429,12 @@ void DeckLinkOutputPort::AddFrame(void* frameBuffer, size_t size)
     }
     else {
         uchar* buffer;
-        frame->GetBytes((void**)&buffer);
+        frame->GetBytes((void**)&buffer);        
         memcpy(buffer, frameBuffer, size);
     }
+
+    // if (pixelFormat == bmdFormat10BitYUV)
+    //    std::cout << "I execute" << (pixelFormat == bmdFormat10BitYUV ? " 10bit YU" : "") << std::endl;
 
     if (frames_q == nullptr)
     {

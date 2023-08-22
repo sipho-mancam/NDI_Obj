@@ -144,7 +144,7 @@ void NDI_Recv::run()
         {
             if (fillAndKey && fillPort != nullptr && keyPort != nullptr)
             {
-                uint* yuvFill;
+                uint4* yuvFill;
                 uchar* gBgra;
                 gBgra = get_yuv_from_bgr_packed(video_frame.xres, video_frame.yres, video_frame.p_data, &yuvFill);
 
@@ -154,7 +154,7 @@ void NDI_Recv::run()
                 uint* key_packed;
                 alpha_2_decklink_gpu(video_frame.xres, video_frame.yres, alpha_channel, &key_packed);
 
-                fillPort->AddFrame(yuvFill, sizeof(uint) * (video_frame.xres / 2) * (video_frame.yres));
+                fillPort->AddFrame(yuvFill, sizeof(uint4) * (video_frame.xres / 6) * (video_frame.yres)); // this is now a 10-bit video
 
                 keyPort->AddFrame(key_packed, sizeof(uint) * (video_frame.xres / 2) * (video_frame.yres));
 
@@ -297,7 +297,8 @@ void NDI_Recv::setKeyAndFillPorts(DeckLinkOutputPort* f, DeckLinkOutputPort* k)
 {
     this->keyPort = k;
     this->fillPort = f;
-    //this->fillPort->SetPixelFormat(bmdFormat8BitBGRA);
+
+ 
 }
 
 void NDI_Recv::connect(std::string s)
@@ -436,6 +437,8 @@ void NDI_Key_And_Fill::setKeyAndFillPorts(DeckLinkOutputPort* f, DeckLinkOutputP
 {
     this->keyPort = k;
     this->fillPort = f;
+
+    this->fillPort->setPixelFormat(bmdFormat10BitYUV);
     //this->fillPort->SetPixelFormat(bmdFormat8BitBGRA);
 }
 
@@ -465,7 +468,7 @@ void NDI_Key_And_Fill::run()
         {
             if (fillPort != nullptr && keyPort != nullptr)
             {
-                uint* yuvFill;
+                uint4* yuvFill;
                 uchar* gBgra;
                 gBgra = get_yuv_from_bgr_packed(video_frame.xres, video_frame.yres, video_frame.p_data, &yuvFill);
 
@@ -503,4 +506,9 @@ void NDI_Key_And_Fill::run()
             break;
         }
     }
+}
+
+NDI_Key_And_Fill::~NDI_Key_And_Fill()
+{
+    
 }

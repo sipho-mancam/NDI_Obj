@@ -12,13 +12,14 @@ void alpha_2_decklink_gpu(long width, long height, uchar* alpha_channel /*GPU Bu
 void get_alpha_channel_gpu(long width, long height, uchar* bgra, uchar** alpha_out);
 
 // bgra is a host buffer output is yuv host buffer pinned, returns gpubuffer_bgra ...
-uchar* get_yuv_from_bgr_packed(long width, long height, uchar* bgra, uint** output); 
+uchar* get_yuv_from_bgr_packed(long width, long height, uchar* bgra, uint4** output); 
 
 // receiving video from decklink function
 __global__ void unpack_10bit_yuv_h(uint4* source, uint4* dst, size_t width, size_t height);
 __global__ void unpack_10bit_yuv_f(uint4* source, uint* dst, size_t width, size_t height);
 __global__ void unpack_10bit_rbg(uchar* source, uint4* dst, size_t width, size_t height);
 __global__ void unpacked_10bityuv_2_rgb(uint4* src, uchar3* dst, int width, int height);
+__global__ void bgr_2_10bityuv_packed(uchar* bgra, uint4* dst, long width, long height);
 
 // sending video to decklink functions
 __global__ void pack_10bit_yuv(uint4* source, uint4* dst, size_t width, size_t height);

@@ -10,7 +10,7 @@ std::queue<T*>* Interface_Manager::getQRef(bool out)
 
     std::string decklink_out(typeid(IDeckLinkVideoFrame).name());
     std::string decklink_in(typeid(IDeckLinkVideoInputFrame).name());
-    std::string ndi_type(typeid(NDIlib_video_frame_v2_t));
+    std::string ndi_type(typeid(NDIlib_video_frame_v2_t).name());
 
     if (type == decklink_in)
     {
