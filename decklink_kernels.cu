@@ -293,13 +293,13 @@ void get_alpha_channel(long width, long height, uchar* bgra, uchar** alpha_out)
 	assert(cudaStatus == cudaSuccess);
 	assert(cudaSuccess == cudaDeviceSynchronize());
 
-	assert(cudaSuccess == cudaMallocHost((void**)&pinned_alpha, alpha_size));
-	assert(cudaSuccess == cudaMemcpy(pinned_alpha, out_alpha, alpha_size, cudaMemcpyDeviceToHost));
+	//assert(cudaSuccess == cudaMallocHost((void**)&pinned_alpha, alpha_size));
+	//assert(cudaSuccess == cudaMemcpy(pinned_alpha, out_alpha, alpha_size, cudaMemcpyDeviceToHost));
 
-	*alpha_out = pinned_alpha;
+	*alpha_out = out_alpha;
 
 	cudaFree(in_gpu_buf);
-	cudaFree(out_alpha);
+	//cudaFree(out_alpha);
 }
 
 
@@ -480,20 +480,20 @@ __global__ void bgr_2_10bityuv_packed(uchar* bgra, uint4* dst, long width, long 
 
 	uint4* macroPx = &dst[y * dstWidth + x];
 
-	Y0 = 0.2627 * R1 + 0.6780 * G1 + 0.0593 * B1;
-	Cb0 = (0.5 / (1.0 - 0.0593)) * (B1 - Y0);
-	Cr0 = (0.5 / (1.0 - 0.2627)) * (R1 - Y0);
-	Y1 = 0.2627 * R2 + 0.6780 * G2 + 0.0593 * B2;
+	Y0 = 0.2627 * R1 + 0.6780 * G1 + 0.0593 * B1 + 16;
+	Cb0 = (0.5 / (1.0 - 0.0593)) * (B1 - Y0) + 128;
+	Cr0 = (0.5 / (1.0 - 0.2627)) * (R1 - Y0) + 128;
+	Y1 = 0.2627 * R2 + 0.6780 * G2 + 0.0593 * B2 + 16;
 
-	Y2 = 0.2627 * R3 + 0.6780 * G3 + 0.0593 * B3;
-	Cb2 = (0.5 / (1.0 - 0.0593)) * (B3 - Y0);
-	Cr2 = (0.5 / (1.0 - 0.2627)) * (R3 - Y0);
-	Y3 = 0.2627 * R4 + 0.6780 * G4 + 0.0593 * B4;
+	Y2 = 0.2627 * R3 + 0.6780 * G3 + 0.0593 * B3 + 16;
+	Cb2 = (0.5 / (1.0 - 0.0593)) * (B3 - Y0) + 128;
+	Cr2 = (0.5 / (1.0 - 0.2627)) * (R3 - Y0) + 128;
+	Y3 = 0.2627 * R4 + 0.6780 * G4 + 0.0593 * B4 +16;
 
-	Y4 = 0.2627 * R5 + 0.6780 * G5 + 0.0593 * B5;
-	Cb4 = (0.5 / (1.0 - 0.0593)) * (B5 - Y0);
-	Cr4 = (0.5 / (1.0 - 0.2627)) * (R5 - Y0);
-	Y5 = 0.2627 * R6 + 0.6780 * G6 + 0.0593 * B6;
+	Y4 = 0.2627 * R5 + 0.6780 * G5 + 0.0593 * B5 + 16;
+	Cb4 = (0.5 / (1.0 - 0.0593)) * (B5 - Y0) + 128;
+	Cr4 = (0.5 / (1.0 - 0.2627)) * (R5 - Y0) + 128;
+	Y5 = 0.2627 * R6 + 0.6780 * G6 + 0.0593 * B6 + 16;
 
 
 	macroPx->x = ((unsigned int)Cr0 << 20) + ((unsigned int)Y0 << 10) + (unsigned int)Cb0;

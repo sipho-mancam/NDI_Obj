@@ -157,7 +157,9 @@ class DeckLinkOutputPort : public IDeckLinkPort
 {
 private:
     IDeckLinkOutput* output;
-    IDeckLinkMutableVideoFrame* frame; // Mutable object ???
+    IDeckLinkMutableVideoFrame* frame; 
+    IDeckLinkMutableVideoFrame* srcFrame;
+    IDeckLinkVideoConversion* conversion;
     DeckLinkPlaybackCallback* cb;
     std::queue<IDeckLinkVideoFrame*>* frames_q;
 

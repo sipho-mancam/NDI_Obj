@@ -144,22 +144,24 @@ void NDI_Recv::run()
         {
             if (fillAndKey && fillPort != nullptr && keyPort != nullptr)
             {
-                uint4* yuvFill;
-                uchar* gBgra;
+                fillPort->AddFrame(video_frame.p_data, video_frame.line_stride_in_bytes * video_frame.yres); // convert BGRA to YUV
+
+                //uint4* yuvFill;
+               /* uchar* gBgra;
                 gBgra = get_yuv_from_bgr_packed(video_frame.xres, video_frame.yres, video_frame.p_data, &yuvFill);
 
                 uchar* alpha_channel;
                 get_alpha_channel_gpu(video_frame.xres, video_frame.yres, gBgra, &alpha_channel);
 
                 uint* key_packed;
-                alpha_2_decklink_gpu(video_frame.xres, video_frame.yres, alpha_channel, &key_packed);
+                alpha_2_decklink_gpu(video_frame.xres, video_frame.yres, alpha_channel, &key_packed);*/
 
-                fillPort->AddFrame(yuvFill, sizeof(uint) * (video_frame.xres / 2) * (video_frame.yres));
+                //fillPort->AddFrame(yuvFill, sizeof(uint4) * (video_frame.xres / 6) * (video_frame.yres));
 
-                keyPort->AddFrame(key_packed, sizeof(uint) * (video_frame.xres / 2) * (video_frame.yres));
+                //keyPort->AddFrame(key_packed, sizeof(uint) * (video_frame.xres / 2) * (video_frame.yres));
 
-                cudaFreeHost(key_packed);
-                cudaFreeHost(yuvFill);
+                //cudaFreeHost(key_packed);
+                //cudaFreeHost(yuvFill);
 
                 NDIlib_recv_free_video_v2(rec_instance, &video_frame);
                 continue;
@@ -437,7 +439,11 @@ void NDI_Key_And_Fill::setKeyAndFillPorts(DeckLinkOutputPort* f, DeckLinkOutputP
     this->keyPort = k;
     this->fillPort = f;
     
-    this->fillPort->setPixelFormat(bmdFormat10BitYUV);
+    // these refer to the expected input format
+    this->fillPort->setPixelFormat(bmdFormat8BitBGRA);
+    keyPort->setPixelFormat(bmdFormat8BitYUV);
+
+    // NOTE: The output format for both is 10-bit YUV
 }
 
 
@@ -450,6 +456,9 @@ NDI_Key_And_Fill::NDI_Key_And_Fill(bool* controller, uint32_t c, std::string s)
 
 void NDI_Key_And_Fill::run()
 {
+    cv::Mat preview;
+    std::vector<cv::Mat> channels;
+    
     while (!(*exit) && running)
     {
         // The descriptors
@@ -466,21 +475,17 @@ void NDI_Key_And_Fill::run()
         {
             if (fillPort != nullptr && keyPort != nullptr)
             {
-                uint4* yuvFill;
-                uchar* gBgra;
-                gBgra = get_yuv_from_bgr_packed(video_frame.xres, video_frame.yres, video_frame.p_data, &yuvFill);
-
                 uchar* alpha_channel;
-                get_alpha_channel_gpu(video_frame.xres, video_frame.yres, gBgra, &alpha_channel);
+                get_alpha_channel(video_frame.xres, video_frame.yres, video_frame.p_data, &alpha_channel);
 
                 uint* key_packed;
                 alpha_2_decklink_gpu(video_frame.xres, video_frame.yres, alpha_channel, &key_packed);
 
-                fillPort->AddFrame(yuvFill, sizeof(uint) * (video_frame.xres / 2) * (video_frame.yres));
-                keyPort->AddFrame(key_packed, sizeof(uint) * (video_frame.xres / 2) * (video_frame.yres));
+                fillPort->AddFrame(video_frame.p_data, video_frame.yres * video_frame.line_stride_in_bytes);
+
+                keyPort->AddFrame(key_packed, video_frame.yres * sizeof(uint) * (video_frame.xres / 2));
 
                 cudaFreeHost(key_packed);
-                cudaFreeHost(yuvFill);
             }
 
             NDIlib_recv_free_video_v2(rec_instance, &video_frame);

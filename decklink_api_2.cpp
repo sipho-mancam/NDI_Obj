@@ -298,7 +298,9 @@ DeckLinkOutputPort::DeckLinkOutputPort(DeckLinkCard* par, IDeckLink* por, int mo
     cb(nullptr), 
     frame(nullptr), 
     frames_q(nullptr),
-    rendering_thread(nullptr)
+    rendering_thread(nullptr),
+    srcFrame(nullptr),
+    conversion(nullptr)
 {
     // mode = 0 (HD) ... mode = 1 (UHD 4K)
     result = port->QueryInterface(IID_IDeckLinkOutput, (void**)&this->output);
@@ -403,16 +405,24 @@ void DeckLinkOutputPort::configure()
 
 void DeckLinkOutputPort::AddFrame(void* frameBuffer, size_t size)
 {
-    if (!frame)
+    if (!frame || !srcFrame)
     {
         IDeckLinkDisplayMode* d_mode = displayModes[selectedMode];
         result = output->CreateVideoFrame(
             d_mode->GetWidth(), 
             d_mode->GetHeight(), 
-            d_mode->GetWidth()*2, 
-            bmdFormat8BitYUV,
+            ((d_mode->GetWidth() + 47)/ 48)*128,
+            bmdFormat10BitYUV,
             bmdFrameFlagDefault, 
             &frame);
+
+        result = output->CreateVideoFrame(
+            d_mode->GetWidth(),
+            d_mode->GetHeight(),
+            pixelFormat == bmdFormat8BitBGRA?d_mode->GetWidth()*4 : d_mode->GetWidth() * 2,
+            pixelFormat,
+            bmdFrameFlagDefault,
+            &srcFrame);
 
         if (result != S_OK)
         {
@@ -421,15 +431,25 @@ void DeckLinkOutputPort::AddFrame(void* frameBuffer, size_t size)
         }
         else {
             uchar* buffer;
-            frame->GetBytes((void**) & buffer);
-            memcpy(buffer, frameBuffer, frame->GetRowBytes() * frame->GetHeight());
+            srcFrame->GetBytes((void**) & buffer);
+            memcpy(buffer, frameBuffer, size);
         }
         
     }
     else {
         uchar* buffer;
-        frame->GetBytes((void**)&buffer);
-        memcpy(buffer, frameBuffer, frame->GetRowBytes() * frame->GetHeight());
+        srcFrame->GetBytes((void**)&buffer);
+        memcpy(buffer, frameBuffer, size);
+    }
+
+    // now convert frame from bgra to YUV
+    if (!conversion)
+    {
+        assert(S_OK==GetDeckLinkFrameConverter(&conversion));
+        assert(S_OK==conversion->ConvertFrame(srcFrame, frame));
+    }
+    else {
+       assert(S_OK == conversion->ConvertFrame(srcFrame, frame));
     }
 
     if (frames_q == nullptr)
