@@ -362,10 +362,10 @@ void DeckLinkOutputPort::run()
         if (frames_q != nullptr && !frames_q->empty())
         {
             VideoFrameObj* iframe = (VideoFrameObj*)frames_q->front();
-            this->output->DisplayVideoFrameSync(iframe);
             frames_q->pop();
+            this->output->DisplayVideoFrameSync(iframe);
             stop_clock = std::chrono::high_resolution_clock::now();
-            //std::cout << ((stop_clock - start_clock).count() / 1000000) << " ms" << std::endl;
+            std::cout << ((stop_clock - start_clock).count() / 1000000) << " ms" << std::endl;
         }
     }
 }
@@ -405,7 +405,6 @@ void DeckLinkOutputPort::AddFrame(void* frameBuffer, size_t size)
 {
     if (!frame)
     {
-        
         IDeckLinkDisplayMode* d_mode = displayModes[selectedMode];
         result = output->CreateVideoFrame(
             d_mode->GetWidth(), 

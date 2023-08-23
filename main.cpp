@@ -68,8 +68,6 @@ int main()
 
     int console_key = 0, choice = 0;
 
-    //std::thread logger(&log_to_file);
-
     while (!exit_flag)
     {
 
