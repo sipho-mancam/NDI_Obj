@@ -40,9 +40,9 @@ int main()
     init();
     bool exit_flag = false;
     DeckLinkCard* card = new DeckLinkCard();
-
-    DeckLinkOutputPort* fillPort = card->SelectOutputPort(0);
-    DeckLinkOutputPort* keyPort = card->SelectOutputPort(1);
+    // change the mode to either HD or UHD mode (1 = UHD, 0 = HD)
+    DeckLinkOutputPort* fillPort = card->SelectOutputPort(3, 0);
+    DeckLinkOutputPort* keyPort = card->SelectOutputPort(1, 0);
 
     NDI_Key_And_Fill* key_and_fill = new NDI_Key_And_Fill(&exit_flag, 1, "");
 

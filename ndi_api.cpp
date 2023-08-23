@@ -477,11 +477,14 @@ void NDI_Key_And_Fill::run()
             {
                 uchar* alpha_channel;
                 get_alpha_channel(video_frame.xres, video_frame.yres, video_frame.p_data, &alpha_channel);
-
                 uint* key_packed;
                 alpha_2_decklink_gpu(video_frame.xres, video_frame.yres, alpha_channel, &key_packed);
 
+                //auto start = std::chrono::high_resolution_clock::now();
                 fillPort->AddFrame(video_frame.p_data, video_frame.yres * video_frame.line_stride_in_bytes);
+                //auto end = std::chrono::high_resolution_clock::now();
+
+                //std::cout << (end - start).count()/1000000.0 << " ms" << std::endl;
 
                 keyPort->AddFrame(key_packed, video_frame.yres * sizeof(uint) * (video_frame.xres / 2));
 

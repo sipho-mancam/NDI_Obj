@@ -321,7 +321,7 @@ DeckLinkOutputPort::DeckLinkOutputPort(DeckLinkCard* par, IDeckLink* por, int mo
         result = this->output->QueryInterface(IID_IDeckLinkProfileAttributes, (void**)&profileAttributes);
         assert(result == S_OK);
 
-        selectedMode = mode == 1 ? 45 : 9; //9; // 1080p50 1920 x 1080 50 fps 
+        selectedMode = mode == 1 ? 45 : 17; //9; // 1080p50 1920 x 1080 50 fps 
         displayMode = displayModes[selectedMode];
 
         // create mutable videoframe object ...
@@ -364,6 +364,28 @@ void DeckLinkOutputPort::run()
         if (frames_q != nullptr && !frames_q->empty())
         {
             IDeckLinkMutableVideoFrame* iframe = (IDeckLinkMutableVideoFrame*)frames_q->front();
+
+            if (!frame)
+            {
+                IDeckLinkDisplayMode* d_mode = displayModes[selectedMode];
+                result = output->CreateVideoFrame(
+                    d_mode->GetWidth(),
+                    d_mode->GetHeight(),
+                    ((d_mode->GetWidth() + 47) / 48) * 128,
+                    bmdFormat10BitYUV,
+                    bmdFrameFlagDefault,
+                    &frame);
+            }
+            // now convert frame from bgra to YUV
+            if (!conversion)
+            {
+                assert(S_OK == GetDeckLinkFrameConverter(&conversion));
+                assert(S_OK == conversion->ConvertFrame(iframe, frame));
+            }
+            else {
+                assert(S_OK == conversion->ConvertFrame(iframe, frame));
+            }
+
             this->output->DisplayVideoFrameSync(iframe);
             frames_q->pop();
             stop_clock = std::chrono::high_resolution_clock::now();
@@ -405,16 +427,9 @@ void DeckLinkOutputPort::configure()
 
 void DeckLinkOutputPort::AddFrame(void* frameBuffer, size_t size)
 {
-    if (!frame || !srcFrame)
+    if (!srcFrame)
     {
         IDeckLinkDisplayMode* d_mode = displayModes[selectedMode];
-        result = output->CreateVideoFrame(
-            d_mode->GetWidth(), 
-            d_mode->GetHeight(), 
-            ((d_mode->GetWidth() + 47)/ 48)*128,
-            bmdFormat10BitYUV,
-            bmdFrameFlagDefault, 
-            &frame);
 
         result = output->CreateVideoFrame(
             d_mode->GetWidth(),
@@ -441,25 +456,15 @@ void DeckLinkOutputPort::AddFrame(void* frameBuffer, size_t size)
         srcFrame->GetBytes((void**)&buffer);
         memcpy(buffer, frameBuffer, size);
     }
-
-    // now convert frame from bgra to YUV
-    if (!conversion)
-    {
-        assert(S_OK==GetDeckLinkFrameConverter(&conversion));
-        assert(S_OK==conversion->ConvertFrame(srcFrame, frame));
-    }
-    else {
-       assert(S_OK == conversion->ConvertFrame(srcFrame, frame));
-    }
-
+   
     if (frames_q == nullptr)
     {
         frames_q = new std::queue<IDeckLinkVideoFrame*>();
-        frames_q->push(frame);
+        frames_q->push(srcFrame);
     }
     else {
        
-        frames_q->push(frame);
+        frames_q->push(srcFrame);
     }
 
     if(!running)
