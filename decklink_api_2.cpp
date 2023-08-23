@@ -422,14 +422,14 @@ void DeckLinkOutputPort::AddFrame(void* frameBuffer, size_t size)
         else {
             uchar* buffer;
             frame->GetBytes((void**) & buffer);
-            memcpy(buffer, frameBuffer, size);
+            memcpy(buffer, frameBuffer, frame->GetRowBytes() * frame->GetHeight());
         }
         
     }
     else {
         uchar* buffer;
         frame->GetBytes((void**)&buffer);
-        memcpy(buffer, frameBuffer, size);
+        memcpy(buffer, frameBuffer, frame->GetRowBytes() * frame->GetHeight());
     }
 
     if (frames_q == nullptr)
@@ -552,7 +552,11 @@ void DeckLinkInputPort::subscribe_2_input_q(std::queue<IDeckLinkVideoInputFrame*
 
 DeckLinkPlaybackCallback::DeckLinkPlaybackCallback(IDeckLinkOutput* dev)
     : m_port(dev),
-     count(0), scale(50000), f_duration(1000), frames_count(0), timeValue(0)
+     count(0), 
+    scale(50000), 
+    f_duration(1000), 
+    frames_count(0), 
+    timeValue(0)
 {}
 
 

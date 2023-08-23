@@ -41,8 +41,8 @@ int main()
     bool exit_flag = false;
     DeckLinkCard* card = new DeckLinkCard();
 
-    DeckLinkOutputPort* fillPort = card->SelectOutputPort(0, 0);
-    DeckLinkOutputPort* keyPort = card->SelectOutputPort(1, 0);
+    DeckLinkOutputPort* fillPort = card->SelectOutputPort(0);
+    DeckLinkOutputPort* keyPort = card->SelectOutputPort(1);
 
     NDI_Key_And_Fill* key_and_fill = new NDI_Key_And_Fill(&exit_flag, 1, "");
 

@@ -476,14 +476,10 @@ void NDI_Key_And_Fill::run()
                 alpha_2_decklink_gpu(video_frame.xres, video_frame.yres, alpha_channel, &key_packed);
 
                 fillPort->AddFrame(yuvFill, sizeof(uint) * (video_frame.xres / 2) * (video_frame.yres));
-
                 keyPort->AddFrame(key_packed, sizeof(uint) * (video_frame.xres / 2) * (video_frame.yres));
 
                 cudaFreeHost(key_packed);
                 cudaFreeHost(yuvFill);
-
-                NDIlib_recv_free_video_v2(rec_instance, &video_frame);
-                continue;
             }
 
             NDIlib_recv_free_video_v2(rec_instance, &video_frame);
