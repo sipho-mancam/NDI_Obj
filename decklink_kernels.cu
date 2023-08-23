@@ -351,11 +351,12 @@ uchar* get_yuv_from_bgr_packed(long width, long height, uchar* bgra, uint** outp
 	const dim3 block(16, 16); // 256 threads per block..
 	const dim3 grid(width / (2*block.x), height / block.y);
 
-	uchar* in_gpu_buf; // bgra pinned and gpu buffers
-	uint* pinned_yuv, * out_yuv;
+	uchar *in_gpu_buf; // bgra pinned and gpu buffers
+	uint4 *pinned_yuv; 
+	uint4 *out_yuv;
 
 	size_t bgra_size = width * height * 4;
-	size_t yuv_size = sizeof(uint) * (width / 2) * height;
+	size_t yuv_size =sizeof(uint4) * (width / 6) * height;
 
 	assert(cudaSuccess == cudaMalloc((void**)&in_gpu_buf, bgra_size));
 	assert(cudaSuccess == cudaMemcpy(in_gpu_buf, bgra, bgra_size, cudaMemcpyHostToDevice));
@@ -374,8 +375,8 @@ uchar* get_yuv_from_bgr_packed(long width, long height, uchar* bgra, uint** outp
 	cudaStatus = cudaGetLastError();
 	assert(cudaStatus == cudaSuccess);
 	assert(cudaSuccess == cudaDeviceSynchronize());
-
 	assert(cudaSuccess == cudaMemcpy(pinned_yuv, out_yuv, yuv_size, cudaMemcpyDeviceToHost));
+	
 	*output = pinned_yuv;
 
 	cudaFree(out_yuv);
