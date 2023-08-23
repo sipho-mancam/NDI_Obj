@@ -361,7 +361,7 @@ void DeckLinkOutputPort::run()
     {
         if (frames_q != nullptr && !frames_q->empty())
         {
-            VideoFrameObj* iframe = (VideoFrameObj*)frames_q->front();
+            IDeckLinkMutableVideoFrame* iframe = (IDeckLinkMutableVideoFrame*)frames_q->front();
             this->output->DisplayVideoFrameSync(iframe);
             frames_q->pop();
             stop_clock = std::chrono::high_resolution_clock::now();

@@ -175,6 +175,7 @@ public:
 
     void AddFrame(void* frameBuffer, size_t size = 0);
     void DisplayFrame();
+    void setPixelFormat(BMDPixelFormat f) { pixelFormat = f; }
 
     void subscribe_2_q(std::queue<IDeckLinkVideoFrame*>* q); // this q gives us data to output ...
     

@@ -144,7 +144,7 @@ void NDI_Recv::run()
         {
             if (fillAndKey && fillPort != nullptr && keyPort != nullptr)
             {
-                uint* yuvFill;
+                uint4* yuvFill;
                 uchar* gBgra;
                 gBgra = get_yuv_from_bgr_packed(video_frame.xres, video_frame.yres, video_frame.p_data, &yuvFill);
 
@@ -436,7 +436,8 @@ void NDI_Key_And_Fill::setKeyAndFillPorts(DeckLinkOutputPort* f, DeckLinkOutputP
 {
     this->keyPort = k;
     this->fillPort = f;
-    //this->fillPort->SetPixelFormat(bmdFormat8BitBGRA);
+    
+    this->fillPort->setPixelFormat(bmdFormat10BitYUV);
 }
 
 
@@ -465,7 +466,7 @@ void NDI_Key_And_Fill::run()
         {
             if (fillPort != nullptr && keyPort != nullptr)
             {
-                uint* yuvFill;
+                uint4* yuvFill;
                 uchar* gBgra;
                 gBgra = get_yuv_from_bgr_packed(video_frame.xres, video_frame.yres, video_frame.p_data, &yuvFill);
 
