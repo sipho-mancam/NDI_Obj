@@ -50,7 +50,7 @@ int main()
     inputPort->subscribe_2_input_q(interface_manager.getDeckLinkInputQ());
     inputPort->startCapture();
 
-    DeckLinkOutputPort* video_out = card->SelectOutputPort(2);
+    DeckLinkOutputPort* video_out = card->SelectOutputPort(2, 0);
     video_out->subscribe_2_q(interface_manager.getDeckLinkOutputQ());
     video_out->start();    
     

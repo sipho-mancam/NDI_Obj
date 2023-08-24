@@ -319,7 +319,7 @@ DeckLinkOutputPort::DeckLinkOutputPort(DeckLinkCard* par, IDeckLink* por, int mo
         result = this->output->QueryInterface(IID_IDeckLinkProfileAttributes, (void**)&profileAttributes);
         assert(result == S_OK);
 
-        selectedMode = mode == 1 ? 45 : 9; //9; // 1080p50 1920 x 1080 50 fps 
+        selectedMode = mode == 1 ? 45 : 17; //9; // 1080p50 1920 x 1080 50 fps 
         displayMode = displayModes[selectedMode];
 
         // create mutable videoframe object ...
