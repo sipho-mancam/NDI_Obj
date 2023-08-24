@@ -32,6 +32,12 @@
     <Filter Include="InterfaceMan">
       <UniqueIdentifier>{f6f52444-154e-43fa-afae-64c7e8028432}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Synchronizer">
+      <UniqueIdentifier>{af52baf7-0350-4fea-9723-36194a8b0f79}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Logger">
+      <UniqueIdentifier>{4cb64b49-ec30-44f8-85b4-09b17f0f1c3b}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -57,6 +63,9 @@
     </ClCompile>
     <ClCompile Include="platform.cpp">
       <Filter>DeckLink\Source</Filter>
+    </ClCompile>
+    <ClCompile Include="internal_sync.cpp">
+      <Filter>Synchronizer</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -92,6 +101,9 @@
     </ClInclude>
     <ClInclude Include="ndi_api.hpp">
       <Filter>NDI</Filter>
+    </ClInclude>
+    <ClInclude Include="internal_sync.hpp">
+      <Filter>Synchronizer</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

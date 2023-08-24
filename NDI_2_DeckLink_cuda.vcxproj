@@ -17,6 +17,7 @@
     <ClInclude Include="decklink_api.hpp" />
     <ClInclude Include="decklink_kernels.cuh" />
     <ClInclude Include="interface_manager.hpp" />
+    <ClInclude Include="internal_sync.hpp" />
     <ClInclude Include="ndi_api.hpp" />
     <ClInclude Include="NDI_constants.hpp" />
     <ClInclude Include="platform.h" />
@@ -28,6 +29,7 @@
     <ClCompile Include="DeckLinkDevice.cpp" />
     <ClCompile Include="decklink_api_2.cpp" />
     <ClCompile Include="interface_manager.cpp" />
+    <ClCompile Include="internal_sync.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="ndi_api.cpp" />
     <ClCompile Include="platform.cpp" />

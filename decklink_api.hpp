@@ -74,6 +74,7 @@ public:
 class VideoFrameCallback : public FrameArrivedCallback {
 private:
     std::queue<IDeckLinkVideoInputFrame*>* frames_queue;
+    std::queue<IDeckLinkVideoFrame*>* frames_q;
     bool droppedFrames, init;
     int maxFrameCount;
     uint32_t* pinnedMemory;
@@ -93,6 +94,7 @@ public:
     void preview_10bit_yuv(IDeckLinkVideoInputFrame* frame);
     std::queue<IDeckLinkVideoInputFrame*>* getQueRef() { return(frames_queue); }
     void subscribe_2_q(std::queue<IDeckLinkVideoInputFrame*>* q);
+    void subscribe_2_q(std::queue<IDeckLinkVideoFrame*>* q);
     void convert_10bit_2_rgb(); //cuda_function
     void unpack_10bit_yuv(); // cuda_function 
 
@@ -155,7 +157,7 @@ protected:
 
 class DeckLinkOutputPort : public IDeckLinkPort
 {
-private:
+protected:
     IDeckLinkOutput* output;
     IDeckLinkMutableVideoFrame* frame; 
     IDeckLinkMutableVideoFrame* srcFrame;
@@ -164,8 +166,10 @@ private:
     std::queue<IDeckLinkVideoFrame*>* frames_q;
 
     std::thread* rendering_thread;
+
+    bool* _release_frames; // this is the flag used to synchronize between multiple outputs
     
-    void run();
+    virtual void run();
 
 public:
     void enableVideo() override;
@@ -179,10 +183,22 @@ public:
     void DisplayFrame();
     void setPixelFormat(BMDPixelFormat f) { pixelFormat = f; }
 
+    void synchronize(bool* _sync_flag);
     void subscribe_2_q(std::queue<IDeckLinkVideoFrame*>* q); // this q gives us data to output ...
+    std::queue<IDeckLinkVideoFrame*>* get_output_q();
     
     void start();
     void stop();
+};
+
+
+class CameraOutputPort : public DeckLinkOutputPort
+{
+private:
+    void run() override;
+
+public:
+    CameraOutputPort(DeckLinkCard* card, IDeckLink* p, int mode = 0);
 };
 
 
@@ -206,6 +222,7 @@ public:
     std::queue<IDeckLinkVideoInputFrame*>* getQRef() { return callback->getQueRef(); }
 
     void subscribe_2_input_q(std::queue<IDeckLinkVideoInputFrame*>* q);
+    void subscribe_2_input_q(std::queue<IDeckLinkVideoFrame*>* q);
 };
 
 class DeckLinkPlaybackCallback : public IDeckLinkVideoOutputCallback, public DeckLinkObject {
@@ -245,6 +262,7 @@ public:
     DeckLinkCard();
     HRESULT checkError(bool fatal = false);
     DeckLinkOutputPort* SelectOutputPort(int idx, int mode = 1);
+    CameraOutputPort* SelectCamOutputPort(int idx, int mode = 1);
     DeckLinkInputPort* SelectInputPort(int c);
     ~DeckLinkCard();
 

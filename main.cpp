@@ -1,7 +1,7 @@
 #include "ndi_api.hpp"
 #include "interface_manager.hpp"
 #include "decklink_api.hpp"
-
+#include "internal_sync.hpp"
 
 #include <fstream>
 #include <iostream>
@@ -39,13 +39,28 @@ int main()
 {
     init();
     bool exit_flag = false;
+    int disp_mode = 0;
+
     DeckLinkCard* card = new DeckLinkCard();
     // change the mode to either HD or UHD mode (1 = UHD, 0 = HD)
-    DeckLinkOutputPort* fillPort = card->SelectOutputPort(3, 0);
-    DeckLinkOutputPort* keyPort = card->SelectOutputPort(1, 0);
+    DeckLinkOutputPort* fillPort = card->SelectOutputPort(3, disp_mode);
+    DeckLinkOutputPort* keyPort = card->SelectOutputPort(1, disp_mode);
+
+    DeckLinkInputPort* camera_input = card->SelectInputPort(0);
+    CameraOutputPort* camera_output = card->SelectCamOutputPort(2, disp_mode);
+    camera_input->subscribe_2_input_q(camera_output->get_output_q());
+
+
+    Synchronizer frames_synchronizer;
+    frames_synchronizer.add_output(fillPort);
+    frames_synchronizer.add_output(keyPort);
+    frames_synchronizer.add_output(camera_output);
+    frames_synchronizer.start();
+
+    camera_input->startCapture();
+    camera_output->start(); 
 
     NDI_Key_And_Fill* key_and_fill = new NDI_Key_And_Fill(&exit_flag, 1, "");
-
     key_and_fill->setKeyAndFillPorts(fillPort, keyPort);
 
     auto start = std::chrono::high_resolution_clock::now();
