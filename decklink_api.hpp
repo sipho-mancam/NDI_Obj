@@ -206,7 +206,6 @@ public:
     std::queue<IDeckLinkVideoInputFrame*>* getQRef() { return callback->getQueRef(); }
 
     void subscribe_2_input_q(std::queue<IDeckLinkVideoInputFrame*>* q);
-
 };
 
 class DeckLinkPlaybackCallback : public IDeckLinkVideoOutputCallback, public DeckLinkObject {
