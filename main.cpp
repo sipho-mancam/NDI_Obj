@@ -128,7 +128,6 @@ int main()
     delete key_and_fill;
     delete discovery;
     delete card;
-   
     clean_up();
 }
 
