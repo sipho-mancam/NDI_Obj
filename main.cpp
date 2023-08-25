@@ -34,7 +34,6 @@ void log_to_file()
 }
 
 
-
 int main()
 {
     init();

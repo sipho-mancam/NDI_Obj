@@ -4,7 +4,6 @@
 #include <iostream>
 #include <thread>
 #include <typeinfo>
-
 #include "decklink_api.hpp"
 #include "ndi_api.hpp"
 
@@ -21,7 +20,6 @@ private:
     
     bool exit_flag;
     long store_count;
-
 
     VideoFrameObj* frame;
 

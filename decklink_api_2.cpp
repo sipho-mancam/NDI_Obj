@@ -447,7 +447,6 @@ void CameraOutputPort::run()
                 std::this_thread::sleep_for(std::chrono::milliseconds(1));
                 this->output->DisplayVideoFrameSync(iframe);
                 frames_q->pop();
-
                 iframe->Release();
                 stop_clock = std::chrono::high_resolution_clock::now();
                 //std::cout << ((stop_clock - start_clock).count() / 1000000) << " ms" << std::endl;
