@@ -1,6 +1,3 @@
-// NDI_Obj.cpp : This file contains the 'main' function. Program execution begins and ends there.
-//
-
 #include "ndi_api.hpp"
 
 void init()
@@ -29,7 +26,6 @@ void resetID()
 {
     ids = 0;
 }
-
 
 Discovery::Discovery(bool* controller, NDIlib_find_create_t desc, bool autoID)
     : NDI_Obj(controller), status(true), current_sources_count(0), sources(nullptr), threadI(nullptr), save(true), time_out(1000), running(false)
@@ -122,12 +118,10 @@ Discovery::~Discovery()
     NDIlib_find_destroy(this->disc_instance);
 }
 
-
 void NDI_Recv::run()
 {
    /* if (!frames)
         frames = new std::queue<NDIlib_video_frame_v2_t*>();*/
-
     while (!(*exit) && running)
     {
         // The descriptors
@@ -142,30 +136,6 @@ void NDI_Recv::run()
             // Video data
         case NDIlib_frame_type_video:
         {
-            if (fillAndKey && fillPort != nullptr && keyPort != nullptr)
-            {
-                fillPort->AddFrame(video_frame.p_data, video_frame.line_stride_in_bytes * video_frame.yres); // convert BGRA to YUV
-
-                //uint4* yuvFill;
-               /* uchar* gBgra;
-                gBgra = get_yuv_from_bgr_packed(video_frame.xres, video_frame.yres, video_frame.p_data, &yuvFill);
-
-                uchar* alpha_channel;
-                get_alpha_channel_gpu(video_frame.xres, video_frame.yres, gBgra, &alpha_channel);
-
-                uint* key_packed;
-                alpha_2_decklink_gpu(video_frame.xres, video_frame.yres, alpha_channel, &key_packed);*/
-
-                //fillPort->AddFrame(yuvFill, sizeof(uint4) * (video_frame.xres / 6) * (video_frame.yres));
-
-                //keyPort->AddFrame(key_packed, sizeof(uint) * (video_frame.xres / 2) * (video_frame.yres));
-
-                //cudaFreeHost(key_packed);
-                //cudaFreeHost(yuvFill);
-
-                NDIlib_recv_free_video_v2(rec_instance, &video_frame);
-                continue;
-            }
             if (persFrame->line_stride_in_bytes != video_frame.line_stride_in_bytes)
             {
                 persFrame->xres = video_frame.xres;
@@ -185,7 +155,6 @@ void NDI_Recv::run()
                     delete persFrame->p_data; 
                 persFrame->p_data = nullptr;
             }
-            
 
             if(persFrame->p_data == nullptr)
                 persFrame->p_data = (uint8_t*) new uint8_t[video_frame.line_stride_in_bytes * video_frame.yres];
@@ -194,18 +163,7 @@ void NDI_Recv::run()
 
             if(frames)
                 frames->push(persFrame);
-            // Double check that we are running sufficiently well
-            //NDIlib_recv_queue_t recv_queue;
-            //NDIlib_recv_get_queue(rec_instance, &recv_queue);
-            //if (recv_queue.video_frames > 2) {
-            //    // Display the frames per second
-            //    printf("Channel %d queue depth is %d.\n", channel, recv_queue.video_frames);
-            //}
-
             NDIlib_recv_free_video_v2(rec_instance, &video_frame);
-
-            //std::this_thread::sleep_for(std::chrono::milliseconds(10));
-            
             break;
         }
 
@@ -225,7 +183,6 @@ void NDI_Recv::run()
     }
 }
 
-
 void NDI_Recv::splitKeyandFill(cv::Mat& src, cv::Mat& dstA, cv::Mat& dstB /*This must be the alpha channel*/)
 {
     // assuming dstA and dstB are pre-allocated ... split the channels...
@@ -233,7 +190,6 @@ void NDI_Recv::splitKeyandFill(cv::Mat& src, cv::Mat& dstA, cv::Mat& dstB /*This
     int from_to[] = { 3,0 };
     cv::mixChannels(&src, 1, out, 1, from_to, 1);
 }
-
 
 NDI_Recv::NDI_Recv(bool* controller, uint32_t c, std::string s)
     : channel(c), source(s),
@@ -299,7 +255,6 @@ void NDI_Recv::setKeyAndFillPorts(DeckLinkOutputPort* f, DeckLinkOutputPort* k)
 {
     this->keyPort = k;
     this->fillPort = f;
-    //this->fillPort->SetPixelFormat(bmdFormat8BitBGRA);
 }
 
 void NDI_Recv::connect(std::string s)
@@ -360,8 +315,6 @@ NDI_Recv::~NDI_Recv()
     this->stop();
     NDIlib_recv_destroy(rec_instance);
 }
-
-
 
 NDI_Sender::NDI_Sender(bool* controller, std::string source)
     : NDI_Obj(controller), sender(NULL), p_worker(nullptr), init_d(false), running(false), frames_q(nullptr)
@@ -433,7 +386,6 @@ NDI_Sender::~NDI_Sender()
     NDIlib_send_destroy(sender);
 }
 
-
 void NDI_Key_And_Fill::setKeyAndFillPorts(DeckLinkOutputPort* f, DeckLinkOutputPort* k)
 {
     this->keyPort = k;
@@ -445,8 +397,6 @@ void NDI_Key_And_Fill::setKeyAndFillPorts(DeckLinkOutputPort* f, DeckLinkOutputP
 
     // NOTE: The output format for both is 10-bit YUV
 }
-
-
 
 NDI_Key_And_Fill::NDI_Key_And_Fill(bool* controller, uint32_t c, std::string s)
     : NDI_Recv(controller, c, s)

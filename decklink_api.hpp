@@ -19,7 +19,6 @@
 
 class DeckLinkCard;
 class DeckLinkPlaybackCallback;
-
 static std::chrono::steady_clock::time_point start_clock, stop_clock;
 
 class VideoFrameObj : public IDeckLinkVideoFrame
@@ -58,13 +57,11 @@ public:
     ~VideoFrameObj();
 };
 
-// experimental ...
-class MVideoObject : public IDeckLinkMutableVideoFrame
+class MVideoObject : public IDeckLinkMutableVideoFrame // experimental ...
 {
 public:
     MVideoObject(long w, long h, BMDPixelFormat pxFormat, BMDFrameFlags flgs = bmdFrameFlagDefault, void* d = nullptr);
 };
-
 
 class VideoFrameCallback : public FrameArrivedCallback {
 private:
@@ -158,11 +155,9 @@ protected:
     IDeckLinkVideoConversion* conversion;
     DeckLinkPlaybackCallback* cb;
     std::queue<IDeckLinkVideoFrame*>* frames_q;
-
     std::thread* rendering_thread;
 
     bool* _release_frames; // this is the flag used to synchronize between multiple outputs
-    
     virtual void run();
 
 public:
@@ -186,7 +181,6 @@ public:
     void stop();
 };
 
-
 class CameraOutputPort : public DeckLinkOutputPort
 {
 private:
@@ -195,7 +189,6 @@ private:
 public:
     CameraOutputPort(DeckLinkCard* card, IDeckLink* p, int mode = 0);
 };
-
 
 class DeckLinkInputPort : public IDeckLinkPort
 {
@@ -246,7 +239,6 @@ public:
     ULONG AddRef();
     ULONG Release();
 };
-
 
 class DeckLinkCard {
 private:

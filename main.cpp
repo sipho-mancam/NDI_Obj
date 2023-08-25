@@ -39,6 +39,12 @@ int main()
     init();
     bool exit_flag = false;
     int disp_mode = 0; // change the mode to either HD or UHD mode (1 = UHD, 0 = HD)
+    
+    int console_key = 0, choice = 0;
+    std::cout << "\n   ======= Select Mode =======\n\n0. HD\t(1920 x 1080 --- 1080i50)\n1. UHD\t(3840 x 2160 --- 2160p50)\nChoice: ";
+    std::cin >> disp_mode;
+    if (disp_mode != 1 && disp_mode != 0)
+        disp_mode = 1;
 
     DeckLinkCard* card = new DeckLinkCard();
     DeckLinkOutputPort* fillPort = card->SelectOutputPort(3, disp_mode);
@@ -63,7 +69,7 @@ int main()
     discovery->start();
     discovery->showMeList();
 
-    int console_key = 0, choice = 0;
+  
 
     while (!exit_flag)
     {
