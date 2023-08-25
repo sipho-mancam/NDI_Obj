@@ -40,6 +40,10 @@ int main()
     bool exit_flag = false;
     int disp_mode = 0; // change the mode to either HD or UHD mode (1 = UHD, 0 = HD)
     
+    Interface_Manager i_man;
+    i_man.start_decklink(); // start decklink input
+    i_man.start_ndi(); // start NDI input
+
     int console_key = 0, choice = 0;
     std::cout << "\n   ======= Select Mode =======\n\n0. HD\t(1920 x 1080 --- 1080i50)\n1. UHD\t(3840 x 2160 --- 2160p50)\nChoice: ";
     std::cin >> disp_mode;
@@ -47,21 +51,21 @@ int main()
         disp_mode = 1;
 
     DeckLinkCard* card = new DeckLinkCard();
-    DeckLinkOutputPort* fillPort = card->SelectOutputPort(3, disp_mode);
-    DeckLinkOutputPort* keyPort = card->SelectOutputPort(1, disp_mode);
+   
     DeckLinkInputPort* camera_input = card->SelectInputPort(0);
-    CameraOutputPort* camera_output = card->SelectCamOutputPort(2, disp_mode);
-    camera_input->subscribe_2_input_q(camera_output->get_output_q());
+    camera_input->subscribe_2_input_q(i_man.getDeckLinkInputQ());
 
-    Synchronizer frames_synchronizer;
-    frames_synchronizer.add_output(fillPort);
-    frames_synchronizer.add_output(keyPort);
-    frames_synchronizer.add_output(camera_output);
-    frames_synchronizer.start();
-    
-    NDI_Key_And_Fill* key_and_fill = new NDI_Key_And_Fill(&exit_flag, 1, "");
-    key_and_fill->setKeyAndFillPorts(fillPort, keyPort);
-     
+    NDI_Sender* sender = new NDI_Sender(&exit_flag);
+    sender->subscribe_to_q(i_man.getNDIOutputQ());
+
+
+    NDI_Recv* receiver = new NDI_Recv(&exit_flag, 0);
+    receiver->subscribe_to_q(i_man.getNDIInputQ());
+
+    DeckLinkOutputPort* camera_output = card->SelectOutputPort(2, disp_mode);
+    camera_output->subscribe_2_q(i_man.getDeckLinkOutputQ());
+
+
     Discovery* discovery = new Discovery(&exit_flag);
     discovery->start();
     discovery->showMeList();
@@ -87,7 +91,7 @@ int main()
             case 's':
             {
 
-                key_and_fill->stop();
+                receiver->stop();
                 system("cls");
 
                 // show the most recent list...
@@ -102,13 +106,15 @@ int main()
                     _getch();
                 }
                 else {
-                    key_and_fill->connect(s);
-                }
 
-                key_and_fill->start();
-                camera_input->startCapture();
-                camera_output->start();
-                discovery->stop();
+                    receiver->connect(s);
+                    receiver->start();
+                    sender->start();
+                    camera_input->startCapture();
+                    camera_output->start();
+                    discovery->stop();
+                }
+                
                 break;
             }
 
@@ -125,7 +131,7 @@ int main()
         }
     }
     
-    delete key_and_fill;
+    delete receiver;
     delete discovery;
     delete card;
     clean_up();

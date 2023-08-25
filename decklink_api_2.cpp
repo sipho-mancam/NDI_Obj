@@ -664,8 +664,8 @@ HRESULT DeckLinkPlaybackCallback::ScheduledFrameCompleted(IDeckLinkVideoFrame* c
 void DeckLinkPlaybackCallback::addFrame(IDeckLinkVideoFrame* frame)
 {
     timeValue += f_duration;
-    if (S_OK != m_port->ScheduleVideoFrame(frame, timeValue, f_duration, scale));
-
+    if (S_OK != m_port->ScheduleVideoFrame(frame, timeValue, f_duration, scale))
+        ;// std::cout << "Failed to schedule frame: " << frame->GetWidth() << std::endl;
     unsigned int b_count;
     m_port->GetBufferedVideoFrameCount(&b_count);
     std::cout << "Frames Q:" << b_count << " Frames Q 2: " << frames_q.size() << std::endl;
