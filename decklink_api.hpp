@@ -14,18 +14,13 @@
 #include <DecklinkAPI_h.h>
 #include "platform.h"
 #include "DeckLinkDevice.h"
-
 #include "cuda_runtime_api.h"
 #include "device_launch_parameters.h"
-
 
 class DeckLinkCard;
 class DeckLinkPlaybackCallback;
 
-
 static std::chrono::steady_clock::time_point start_clock, stop_clock;
-
-
 
 class VideoFrameObj : public IDeckLinkVideoFrame
 {
@@ -97,7 +92,6 @@ public:
     void subscribe_2_q(std::queue<IDeckLinkVideoFrame*>* q);
     void convert_10bit_2_rgb(); //cuda_function
     void unpack_10bit_yuv(); // cuda_function 
-
 
     // queue management 
     void clearAll();
@@ -182,6 +176,7 @@ public:
     void AddFrame(void* frameBuffer, size_t size = 0);
     void DisplayFrame();
     void setPixelFormat(BMDPixelFormat f) { pixelFormat = f; }
+    void playFrameBack(); // play back the frame asynchronously.
 
     void synchronize(bool* _sync_flag);
     void subscribe_2_q(std::queue<IDeckLinkVideoFrame*>* q); // this q gives us data to output ...
@@ -240,6 +235,12 @@ public:
     void addFrame(IDeckLinkVideoFrame* frame);
     HRESULT ScheduledPlaybackHasStopped(void) override;
 
+    BMDTimeValue getCurrentDisplayTime() { return timeValue;  }
+    BMDTimeValue getFrameDuration() { return f_duration; }
+    BMDTimeScale getTimeScale() { return scale; }
+
+    void setDuration(BMDTimeValue d) { f_duration = d; }
+    void setTimeScale(BMDTimeScale s) { scale = s; }
     // IUnknown interface
     HRESULT QueryInterface(REFIID iid, LPVOID* ppv);
     ULONG AddRef();

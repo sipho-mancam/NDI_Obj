@@ -51,13 +51,12 @@ int main()
     frames_synchronizer.add_output(fillPort);
     frames_synchronizer.add_output(keyPort);
     frames_synchronizer.add_output(camera_output);
-    frames_synchronizer.start();
-    camera_input->startCapture();
-    camera_output->start(); 
 
+    frames_synchronizer.start();
+    
     NDI_Key_And_Fill* key_and_fill = new NDI_Key_And_Fill(&exit_flag, 1, "");
     key_and_fill->setKeyAndFillPorts(fillPort, keyPort);
-
+     
     auto start = std::chrono::high_resolution_clock::now();
 
     Discovery* discovery = new Discovery(&exit_flag);
@@ -104,6 +103,8 @@ int main()
                 }
 
                 key_and_fill->start();
+                camera_input->startCapture();
+                camera_output->start();
                 std::cin.clear();
 
                 discovery->stop();
@@ -123,9 +124,10 @@ int main()
         }
     }
     
+    delete key_and_fill;
     delete discovery;
     delete card;
-    delete key_and_fill;
+   
     clean_up();
 }
 
