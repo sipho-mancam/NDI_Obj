@@ -57,20 +57,16 @@ int main()
     frames_synchronizer.add_output(fillPort);
     frames_synchronizer.add_output(keyPort);
     frames_synchronizer.add_output(camera_output);
-
     frames_synchronizer.start();
     
     NDI_Key_And_Fill* key_and_fill = new NDI_Key_And_Fill(&exit_flag, 1, "");
     key_and_fill->setKeyAndFillPorts(fillPort, keyPort);
      
-    auto start = std::chrono::high_resolution_clock::now();
-
     Discovery* discovery = new Discovery(&exit_flag);
     discovery->start();
     discovery->showMeList();
 
-  
-
+    auto start = std::chrono::high_resolution_clock::now();
     while (!exit_flag)
     {
 
@@ -93,6 +89,7 @@ int main()
 
                 key_and_fill->stop();
                 system("cls");
+
                 // show the most recent list...
                 discovery->showMeList();
                 std::cout << "Selected Device using index (0, 1, 2 ...etc): ";
@@ -111,8 +108,6 @@ int main()
                 key_and_fill->start();
                 camera_input->startCapture();
                 camera_output->start();
-                std::cin.clear();
-
                 discovery->stop();
                 break;
             }

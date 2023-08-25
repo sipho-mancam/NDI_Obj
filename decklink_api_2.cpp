@@ -1,6 +1,5 @@
 #include "decklink_api.hpp"
 
-
 void VideoFrameObj::_updateRowBytes()
 {
     long w = this->width;
@@ -138,14 +137,11 @@ VideoFrameObj::~VideoFrameObj()
         free(data);
 }
 
-
 MVideoObject::MVideoObject(long w, long h, BMDPixelFormat pxFormat, BMDFrameFlags flgs, void* d)
     : IDeckLinkMutableVideoFrame()
 {
     
 }
-
-
 
 DeckLinkCard::DeckLinkCard()
 {
@@ -173,7 +169,6 @@ HRESULT DeckLinkCard::checkError(bool fatal)
     }
     return result;
 }
-
 
 DeckLinkOutputPort* DeckLinkCard::SelectOutputPort(int idx, int mode)
 {
@@ -283,7 +278,6 @@ bool DeckLinkCard::_selectedPort(int c)
     return false;
 }
 
-
 HRESULT DeckLinkObject::checkError(std::string info , bool fatal)
 {
     if (result != S_OK)
@@ -294,7 +288,6 @@ HRESULT DeckLinkObject::checkError(std::string info , bool fatal)
     }
     return result;
 }
-
 
 IDeckLinkPort::IDeckLinkPort(DeckLinkCard* par, IDeckLink* po)
     : parent(par), 
@@ -354,11 +347,6 @@ DeckLinkOutputPort::DeckLinkOutputPort(DeckLinkCard* par, IDeckLink* por, int mo
 
         selectedMode = mode == 1 ? 45 : 17; //9; // 1080p50 1920 x 1080 50 fps 
         displayMode = displayModes[selectedMode];
-
-        // create mutable videoframe object ...
-        // TODO: here..
-
-        // configure the video out ...
         configure();
     }
 }
@@ -391,9 +379,6 @@ void DeckLinkOutputPort::synchronize(bool* _sync)
 {
     _release_frames = _sync;
 }
-
-
-
 
 void DeckLinkOutputPort::run()
 {
@@ -451,7 +436,6 @@ void CameraOutputPort::run()
         }
     }
 }
-
 
 bool DeckLinkOutputPort::doesSupportVideoMode()
 {
@@ -579,7 +563,6 @@ void DeckLinkOutputPort::subscribe_2_q(std::queue<IDeckLinkVideoFrame*>* q)
         frames_q = q;
 }
 
-
 DeckLinkOutputPort::~DeckLinkOutputPort()
 {
    // if (port)port->Release();
@@ -606,7 +589,6 @@ DeckLinkOutputPort::~DeckLinkOutputPort()
     this->stop(); // stop the rendering thread ...
 
 }
-
 
 DeckLinkInputPort::DeckLinkInputPort(DeckLinkCard* card, IDeckLink* p) : IDeckLinkPort(card, p)
 {
@@ -641,7 +623,6 @@ DeckLinkInputPort::~DeckLinkInputPort()
     delete deckLinkCap;
 }
 
-
 void DeckLinkInputPort::RegisterVideoCallback(FrameArrivedCallback* _cb)
 {
     deckLinkCap->registerFrameArrivedCallback(_cb);
@@ -666,8 +647,6 @@ void DeckLinkInputPort::subscribe_2_input_q(std::queue<IDeckLinkVideoFrame*>* q)
     callback->subscribe_2_q(q);
 }
 
-
-
 DeckLinkPlaybackCallback::DeckLinkPlaybackCallback(IDeckLinkOutput* dev)
     : m_port(dev),
      count(0), 
@@ -676,7 +655,6 @@ DeckLinkPlaybackCallback::DeckLinkPlaybackCallback(IDeckLinkOutput* dev)
     frames_count(0), 
     timeValue(0)
 {}
-
 
 HRESULT DeckLinkPlaybackCallback::ScheduledFrameCompleted(IDeckLinkVideoFrame* completedFrame, BMDOutputFrameCompletionResult result)
 {
@@ -693,7 +671,6 @@ void DeckLinkPlaybackCallback::addFrame(IDeckLinkVideoFrame* frame)
     std::cout << "Frames Q:" << b_count << " Frames Q 2: " << frames_q.size() << std::endl;
 }
 
-
 HRESULT DeckLinkPlaybackCallback::ScheduledPlaybackHasStopped(void)
 {
     IDeckLinkVideoFrame* vid_frame;
@@ -708,7 +685,6 @@ HRESULT DeckLinkPlaybackCallback::ScheduledPlaybackHasStopped(void)
 
     return S_OK;
 }
-
 
 HRESULT DeckLinkPlaybackCallback::QueryInterface(REFIID iid, LPVOID* ppv)
 {
@@ -773,8 +749,6 @@ VideoFrameCallback::VideoFrameCallback(int mFrameCount) :
     frames_queue(nullptr),
     frames_q(nullptr)
 {}
-
-
 // This is called on a seperate thread ...
 void VideoFrameCallback::arrived(IDeckLinkVideoInputFrame* frame) 
 {
