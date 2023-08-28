@@ -157,6 +157,8 @@ protected:
     std::queue<IDeckLinkVideoFrame*>* frames_q;
     std::thread* rendering_thread;
 
+    bool m_referenceLocked;
+
     bool* _release_frames; // this is the flag used to synchronize between multiple outputs
     virtual void run();
 
@@ -176,6 +178,8 @@ public:
     void synchronize(bool* _sync_flag);
     void subscribe_2_q(std::queue<IDeckLinkVideoFrame*>* q); // this q gives us data to output ...
     std::queue<IDeckLinkVideoFrame*>* get_output_q();
+
+    bool waitForReference(); // waits for as long as the reference signal is not obtained.
     
     void start();
     void stop();

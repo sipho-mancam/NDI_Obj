@@ -324,7 +324,8 @@ DeckLinkOutputPort::DeckLinkOutputPort(DeckLinkCard* par, IDeckLink* por, int mo
     rendering_thread(nullptr),
     srcFrame(nullptr),
     conversion(nullptr),
-    _release_frames(nullptr)
+    _release_frames(nullptr),
+    m_referenceLocked(false)
 {
     // mode = 0 (HD) ... mode = 1 (UHD 4K)
     result = port->QueryInterface(IID_IDeckLinkOutput, (void**)&this->output);
@@ -380,10 +381,52 @@ void DeckLinkOutputPort::synchronize(bool* _sync)
     _release_frames = _sync;
 }
 
+bool DeckLinkOutputPort::waitForReference()
+{
+    IDeckLinkStatus* m_decklinkStatus;
+    // wait indefinitely for the reference signal, or be cancel and go on free run.
+    result = port->QueryInterface(IID_IDeckLinkStatus, (void**)&m_decklinkStatus);
+    if (result != S_OK)
+    {
+        return false;
+    }
+
+    dlbool_t referenceLocked;
+    if(!m_decklinkStatus)
+        return false;
+    
+    std::cout << "Waiting for reference signal..." << std::endl;
+
+    auto start = std::chrono::high_resolution_clock::now();
+
+    while (true)
+    {
+        if (m_decklinkStatus->GetFlag(bmdDeckLinkStatusReferenceSignalLocked, &referenceLocked) == S_OK && referenceLocked)
+        {
+            m_referenceLocked = true;
+            return true;
+        }
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+        std::cout << "Waiting for Gen lock" << std::endl;
+      /*  if ((std::chrono::high_resolution_clock::now() - start) >= std::chrono::seconds(5))
+            break;*/
+    }
+
+    this->m_referenceLocked = false;
+    return false;
+}
+
 void DeckLinkOutputPort::run()
 {
+    waitForReference(); // this will wait for gen_lock, before starting the playback.
+ 
     while (running)
     {
+
+        if (!m_referenceLocked)
+            std::cout << "Waiting for Gen lock" << std::endl;
         // if we are synchronized, wait for the flag .... or else ... just let it go.
         if ((_release_frames != nullptr && *_release_frames) || (!_release_frames))
         {
@@ -420,8 +463,10 @@ void DeckLinkOutputPort::run()
 
 void CameraOutputPort::run()
 {
+    waitForReference(); // this will wait for gen_lock, before starting the playback.
     while (running)
     {
+        
         // if we are synchronized, wait for the flag .... or else ... just let it go.
         if ((_release_frames != nullptr && *_release_frames) || (!_release_frames))
         {
