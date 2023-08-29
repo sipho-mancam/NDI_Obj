@@ -49,11 +49,12 @@ int main()
     DeckLinkCard* card = new DeckLinkCard();
     DeckLinkOutputPort* fillPort = card->SelectOutputPort(3, disp_mode);
     DeckLinkOutputPort* keyPort = card->SelectOutputPort(1, disp_mode);
+
     DeckLinkInputPort* camera_input = card->SelectInputPort(0);
     CameraOutputPort* camera_output = card->SelectCamOutputPort(2, disp_mode);
     camera_input->subscribe_2_input_q(camera_output->get_output_q());
 
-    Synchronizer frames_synchronizer;
+    Synchronizer frames_synchronizer;  
     frames_synchronizer.add_output(fillPort);
     frames_synchronizer.add_output(keyPort);
     frames_synchronizer.add_output(camera_output);
@@ -65,6 +66,7 @@ int main()
     Discovery* discovery = new Discovery(&exit_flag);
     discovery->start();
     discovery->showMeList();
+
 
     auto start = std::chrono::high_resolution_clock::now();
     while (!exit_flag)

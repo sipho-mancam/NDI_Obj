@@ -577,8 +577,14 @@ void DeckLinkOutputPort::playFrameBack()
 
    if (!playback_running)
    {
-       BMDTimeValue tv = 0, duration = 1000;
+       unsigned int buffered_frames = 0;
+
+       BMDTimeValue tv = (buffered_frames * 1000), duration = 1000;
        BMDTimeScale scale = 50000;
+       if (output->GetBufferedVideoFrameCount(&buffered_frames) != S_OK)
+       {
+           tv = (buffered_frames * 1000);
+       }
 
        displayMode->GetFrameRate(&duration, &scale);
 
@@ -587,8 +593,11 @@ void DeckLinkOutputPort::playFrameBack()
 
        this->output->SetScheduledFrameCompletionCallback(cb);
 
-       this->output->ScheduleVideoFrame(frame, tv, duration, scale);
+       this->output->ScheduleVideoFrame(frame, tv, duration/2, scale);
 
+       if (buffered_frames < PREROLL)
+           return;
+       
        this->output->StartScheduledPlayback(0, scale, 1);
    }
    else {

@@ -17,6 +17,9 @@
 #include "cuda_runtime_api.h"
 #include "device_launch_parameters.h"
 
+
+#define PREROLL 2
+
 class DeckLinkCard;
 class DeckLinkPlaybackCallback;
 static std::chrono::steady_clock::time_point start_clock, stop_clock;
