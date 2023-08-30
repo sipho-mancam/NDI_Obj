@@ -57,7 +57,7 @@ int main()
     Synchronizer frames_synchronizer;  
     frames_synchronizer.add_output(fillPort);
     frames_synchronizer.add_output(keyPort);
-    frames_synchronizer.add_output(camera_output);
+    //frames_synchronizer.add_output(camera_output);
     frames_synchronizer.start();
     
     NDI_Key_And_Fill* key_and_fill = new NDI_Key_And_Fill(&exit_flag, 1, "");
@@ -108,8 +108,8 @@ int main()
                 }
 
                 key_and_fill->start();
-                camera_input->startCapture();
-                camera_output->start();
+              /*  camera_input->startCapture();
+                camera_output->start();*/
                 discovery->stop();
                 break;
             }

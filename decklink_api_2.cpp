@@ -588,16 +588,16 @@ void DeckLinkOutputPort::playFrameBack()
 
        displayMode->GetFrameRate(&duration, &scale);
 
-       cb->setDuration(duration/2);
+       cb->setDuration(duration);
        cb->setTimeScale(scale);
 
        this->output->SetScheduledFrameCompletionCallback(cb);
 
-       this->output->ScheduleVideoFrame(frame, tv, duration/2, scale);
+       this->output->ScheduleVideoFrame(frame, tv, duration, scale);
 
-       if (buffered_frames < PREROLL)
-           return;
-       
+       //if (buffered_frames < PREROLL)
+       //    return;
+       //
        this->output->StartScheduledPlayback(0, scale, 1);
    }
    else {
@@ -718,11 +718,12 @@ HRESULT DeckLinkPlaybackCallback::ScheduledFrameCompleted(IDeckLinkVideoFrame* c
 void DeckLinkPlaybackCallback::addFrame(IDeckLinkVideoFrame* frame)
 {
     timeValue += f_duration;
-    if (S_OK != m_port->ScheduleVideoFrame(frame, timeValue, f_duration, scale));
+    if (S_OK != m_port->ScheduleVideoFrame(frame, timeValue, f_duration, scale))
+        std::cout << "Frame failed" << std::endl;
 
-    unsigned int b_count;
+   /* unsigned int b_count;
     m_port->GetBufferedVideoFrameCount(&b_count);
-    std::cout << "Frames Q:" << b_count << " Frames Q 2: " << frames_q.size() << std::endl;
+    std::cout << "Frames Q:" << b_count << " Frames Q 2: " << frames_q.size() << std::endl;*/
 }
 
 HRESULT DeckLinkPlaybackCallback::ScheduledPlaybackHasStopped(void)
