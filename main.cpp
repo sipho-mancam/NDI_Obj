@@ -47,8 +47,8 @@ int main()
         disp_mode = 1;
 
     DeckLinkCard* card = new DeckLinkCard();
-    DeckLinkOutputPort* fillPort = card->SelectOutputPort(3, disp_mode);
-    DeckLinkOutputPort* keyPort = card->SelectOutputPort(1, disp_mode);
+    DeckLinkOutputPort* fillPort = card->SelectOutputPort(1, disp_mode);
+    DeckLinkOutputPort* keyPort = card->SelectOutputPort(3, disp_mode);
 
     DeckLinkInputPort* camera_input = card->SelectInputPort(0);
     CameraOutputPort* camera_output = card->SelectCamOutputPort(2, disp_mode);
