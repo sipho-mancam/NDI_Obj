@@ -574,34 +574,42 @@ void DeckLinkOutputPort::playFrameBack()
    BOOL playback_running;
 
    this->output->IsScheduledPlaybackRunning(&playback_running);
+   static bool _ran = false;
+   unsigned int buffered_frames = 0;
+
+   static BMDTimeValue tv = (buffered_frames * 1000), duration = 1000;
+   static BMDTimeScale scale = 50000;
 
    if (!playback_running)
    {
-       unsigned int buffered_frames = 0;
-
-       BMDTimeValue tv = (buffered_frames * 1000), duration = 1000;
-       BMDTimeScale scale = 50000;
-       if (output->GetBufferedVideoFrameCount(&buffered_frames) != S_OK)
+       if (!_ran)
        {
-           tv = (buffered_frames * 1000);
+           displayMode->GetFrameRate(&duration, &scale);
+           if (output->GetBufferedVideoFrameCount(&buffered_frames) == S_OK)
+           {
+               tv = (buffered_frames * 1000);
+           }
+
+           cb->setDuration(duration);
+           cb->setTimeScale(scale);
+
+           this->output->SetScheduledFrameCompletionCallback(cb);
+           _ran = true;
        }
+       else {
+           if (output->GetBufferedVideoFrameCount(&buffered_frames) == S_OK)
+           {
+               tv = (buffered_frames * duration);
+           }
 
-       displayMode->GetFrameRate(&duration, &scale);
-
-       cb->setDuration(duration);
-       cb->setTimeScale(scale);
-
-       this->output->SetScheduledFrameCompletionCallback(cb);
-
-       this->output->ScheduleVideoFrame(frame, tv, duration, scale);
-
-       //if (buffered_frames < PREROLL)
-       //    return;
-       //
-       this->output->StartScheduledPlayback(0, scale, 1);
+           this->output->ScheduleVideoFrame(frame, tv, duration, scale);
+       }
+              
+       if (buffered_frames >= PREROLL)
+            this->output->StartScheduledPlayback(0, scale, 1.0);
    }
    else {
-
+       
        cb->addFrame(frame);
    }
 }
@@ -717,9 +725,35 @@ HRESULT DeckLinkPlaybackCallback::ScheduledFrameCompleted(IDeckLinkVideoFrame* c
 
 void DeckLinkPlaybackCallback::addFrame(IDeckLinkVideoFrame* frame)
 {
+    if (timeValue == 0)
+    {
+        timeValue += PREROLL * f_duration - f_duration;
+    }
     timeValue += f_duration;
-    if (S_OK != m_port->ScheduleVideoFrame(frame, timeValue, f_duration, scale))
-        std::cout << "Frame failed" << std::endl;
+    HRESULT result = m_port->ScheduleVideoFrame(frame, timeValue, f_duration, scale);
+    if (S_OK != result)
+    {
+        //std::cout << "Frame failed" << std::endl;
+
+        switch (result)
+        {
+        case E_FAIL:
+            std::cout << "There was a failure: "<< frame << std::endl;
+            break;
+        case E_ACCESSDENIED:
+            std::cout << "Access denied (Please enable video out)" << std::endl;
+            break;
+
+        case E_INVALIDARG:
+            std::cout << "The frame attributes are invalid" << std::endl;
+            break;
+
+        case E_OUTOFMEMORY:
+            std::cout << "Out of memory" << std::endl;
+            break;
+        }
+    }
+       
 
    /* unsigned int b_count;
     m_port->GetBufferedVideoFrameCount(&b_count);

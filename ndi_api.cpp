@@ -243,6 +243,12 @@ NDI_Recv::NDI_Recv(bool* controller, uint32_t c, std::string s)
         connected = true;
     }
     rec_instance = NDIlib_recv_create_v3(&recv_desc);
+
+    if (rec_instance)
+    {
+        // if we have a receiver, we can create a frame synchronizer.
+        frames_synchronizer = NDIlib_framesync_create(rec_instance);
+    }
 }
 
 void NDI_Recv::disconnect()
@@ -416,47 +422,69 @@ void NDI_Key_And_Fill::run()
         NDIlib_audio_frame_v2_t audio_frame;
         NDIlib_metadata_frame_t metadata_frame;
 
-        switch (NDIlib_recv_capture_v2(rec_instance, &video_frame, NULL, &metadata_frame, timeout)) {
-            // No data
-        case NDIlib_frame_type_none:
-            break;
-            // Video data
-        case NDIlib_frame_type_video:
+        if (!frames_synchronizer) // remember to enable this for it to work but removing the inverting instruction
         {
+            NDIlib_framesync_capture_video(
+                frames_synchronizer,
+                &video_frame);
+
+            // sleep for frame duration
             if (fillPort != nullptr && keyPort != nullptr)
             {
+                // prevent all dynamic memory allocations from local functions, allocations must be done only once. (GPU)
                 uchar* alpha_channel;
                 get_alpha_channel(video_frame.xres, video_frame.yres, video_frame.p_data, &alpha_channel);
                 uint* key_packed;
-                alpha_2_decklink_gpu(video_frame.xres, video_frame.yres, alpha_channel, &key_packed);
+                alpha_2_decklink_gpu(video_frame.xres, video_frame.yres, alpha_channel, &key_packed); // optimize this to belong to the
+                // class and use fixed memory allocations.
 
-                //auto start = std::chrono::high_resolution_clock::now();
                 fillPort->AddFrame(video_frame.p_data, video_frame.yres * video_frame.line_stride_in_bytes);
-                //auto end = std::chrono::high_resolution_clock::now();
-
-                //std::cout << (end - start).count()/1000000.0 << " ms" << std::endl;
-
                 keyPort->AddFrame(key_packed, video_frame.yres * sizeof(uint) * (video_frame.xres / 2));
 
                 cudaFreeHost(key_packed);
             }
 
-            NDIlib_recv_free_video_v2(rec_instance, &video_frame);
-            break;
-        }
+            NDIlib_framesync_free_video(frames_synchronizer, &video_frame);
 
-        // Meta data
-        case NDIlib_frame_type_metadata:
-            NDIlib_recv_free_metadata(rec_instance, &metadata_frame);
-            break;
-            // There is a status change on the receiver (e.g. new web interface)
-        case NDIlib_frame_type_status_change:
-            printf("Receiver connection status changed.\n");
-            break;
-            // Everything else
-        default:
-            break;
+            std::this_thread::sleep_for(std::chrono::milliseconds(10)); // at 50fps, the rate will be 20ms per frame.
+
         }
+        else // this is how we read the frames without the frames synchronizer.
+        {
+            switch (NDIlib_recv_capture_v2(rec_instance, &video_frame, NULL, NULL, timeout)) {
+                // No data
+            case NDIlib_frame_type_none:
+                break;
+                // Video data
+            case NDIlib_frame_type_video:
+            {
+                if (fillPort != nullptr && keyPort != nullptr)
+                {
+
+                    uchar* alpha_channel;
+                    get_alpha_channel(video_frame.xres, video_frame.yres, video_frame.p_data, &alpha_channel);
+                    uint* key_packed;
+                    alpha_2_decklink_gpu(video_frame.xres, video_frame.yres, alpha_channel, &key_packed);
+
+                    fillPort->AddFrame(video_frame.p_data, video_frame.yres * video_frame.line_stride_in_bytes);
+                    keyPort->AddFrame(key_packed, video_frame.yres * sizeof(uint) * (video_frame.xres / 2));
+
+                    cudaFreeHost(key_packed);
+                }
+
+                NDIlib_recv_free_video_v2(rec_instance, &video_frame);
+                break;
+            }
+            
+            // There is a status change on the receiver (e.g. new web interface)
+            case NDIlib_frame_type_status_change:
+                printf("Receiver connection status changed.\n");
+                break;
+                // Everything else
+            default:
+                break;
+            }
+        } 
     }
 }
 

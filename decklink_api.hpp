@@ -18,7 +18,7 @@
 #include "device_launch_parameters.h"
 
 
-#define PREROLL 2
+#define PREROLL 3
 
 class DeckLinkCard;
 class DeckLinkPlaybackCallback;

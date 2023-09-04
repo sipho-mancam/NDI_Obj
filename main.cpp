@@ -47,8 +47,9 @@ int main()
         disp_mode = 1;
 
     DeckLinkCard* card = new DeckLinkCard();
-    DeckLinkOutputPort* fillPort = card->SelectOutputPort(1, disp_mode);
-    DeckLinkOutputPort* keyPort = card->SelectOutputPort(3, disp_mode);
+
+    DeckLinkOutputPort* fillPort = card->SelectOutputPort(3, disp_mode);
+    DeckLinkOutputPort* keyPort = card->SelectOutputPort(2, disp_mode);
 
     DeckLinkInputPort* camera_input = card->SelectInputPort(0);
     CameraOutputPort* camera_output = card->SelectCamOutputPort(2, disp_mode);
@@ -57,7 +58,6 @@ int main()
     Synchronizer frames_synchronizer;  
     frames_synchronizer.add_output(fillPort);
     frames_synchronizer.add_output(keyPort);
-    //frames_synchronizer.add_output(camera_output);
     frames_synchronizer.start();
     
     NDI_Key_And_Fill* key_and_fill = new NDI_Key_And_Fill(&exit_flag, 1, "");

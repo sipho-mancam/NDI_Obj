@@ -105,6 +105,8 @@ protected:
     NDIlib_source_t s_connect;
     NDIlib_recv_instance_t rec_instance;
     NDIlib_recv_create_v3_t recv_desc;
+
+    NDIlib_framesync_instance_t frames_synchronizer;
     std::thread* receiver_thread;
     uint32_t delay;
     std::queue<NDIlib_video_frame_v2_t*>* frames;
