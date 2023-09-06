@@ -226,9 +226,9 @@ NDI_Recv::NDI_Recv(bool* controller, uint32_t c, std::string s)
     {
         s_connect.p_ndi_name = source.c_str();
 
-        recv_desc.bandwidth = NDIlib_recv_bandwidth_highest;
+        //recv_desc.bandwidth = NDIlib_recv_bandwidth_highest;
         recv_desc.source_to_connect_to = s_connect; // this will allow the NDI endpoint connect to the specified string upon creation...
-        recv_desc.color_format = NDIlib_recv_color_format_best;
+        //recv_desc.color_format = NDIlib_recv_color_format_best;
 
         char buf[256] = { 0, };
         sprintf_s(buf, "Channel %u", channel);
