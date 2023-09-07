@@ -456,6 +456,8 @@ void NDI_Key_And_Fill::run()
     cv::Mat preview;
     std::vector<cv::Mat> channels;
     
+    uint* key_packed;
+
     while (!(*exit) && running)
     {
         // The descriptors
@@ -475,7 +477,7 @@ void NDI_Key_And_Fill::run()
                 // prevent all dynamic memory allocations from local functions, allocations must be done only once. (GPU)
                 uchar* alpha_channel;
                 get_alpha_channel(video_frame.xres, video_frame.yres, video_frame.p_data, &alpha_channel);
-                uint* key_packed;
+               
                 alpha_2_decklink_gpu(video_frame.xres, video_frame.yres, alpha_channel, &key_packed); // optimize this to belong to the
                 // class and use fixed memory allocations.
 

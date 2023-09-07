@@ -220,8 +220,8 @@ void alpha_2_decklink_gpu(long width, long height, uchar* alpha_channel /*GPU Bu
 
 	size_t packedSize = (width / 2) * height * sizeof(uint);
 
-	assert(cudaSuccess == cudaMallocHost((void**)&cpuOut, packedSize));
-	assert(cudaMalloc((void**)&gpuBuf_out, packedSize) == cudaSuccess);
+	cudaMallocHost((void**)&cpuOut, packedSize);
+	cudaMalloc((void**)&gpuBuf_out, packedSize);
 
 	alpha_2_yuyv_pack << < grid, block >> > (
 		alpha_channel,
@@ -230,11 +230,11 @@ void alpha_2_decklink_gpu(long width, long height, uchar* alpha_channel /*GPU Bu
 		);
 
 	cudaStatus = cudaGetLastError();
-	assert(cudaStatus == cudaSuccess);
-	assert(cudaSuccess == cudaDeviceSynchronize());
+	cudaStatus == cudaSuccess;
+	cudaSuccess == cudaDeviceSynchronize();
 
 	cudaStatus = cudaMemcpy(cpuOut, gpuBuf_out, packedSize, cudaMemcpyDeviceToHost);
-	assert(cudaStatus == cudaSuccess);
+	cudaStatus == cudaSuccess;
 
 	*output = cpuOut;
 
