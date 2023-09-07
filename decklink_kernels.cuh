@@ -4,6 +4,10 @@
 #include "device_launch_parameters.h"
 #include <opencv2/opencv.hpp>
 
+#ifndef assert
+#define assert(e) ()
+#endif // !assert
+
 // host launchers ...
 void alpha_2_decklink(long width, long height, uchar* alpha_channel /*Host buffer*/, uint** output /*Host buffer*/);
 void get_alpha_channel(long width, long height, uchar* bgra, uchar** alpha_out);

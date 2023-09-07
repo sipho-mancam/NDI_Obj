@@ -129,13 +129,12 @@ void NDI_Recv::run()
         NDIlib_audio_frame_v2_t audio_frame;
         NDIlib_metadata_frame_t metadata_frame;
 
-        switch (NDIlib_recv_capture_v2(rec_instance, &video_frame, NULL, &metadata_frame, timeout)) {
-            // No data
-        case NDIlib_frame_type_none:
-            break;
-            // Video data
-        case NDIlib_frame_type_video:
+        if (!frames_synchronizer) // remember to enable this for it to work but removing the inverting instruction
         {
+            NDIlib_framesync_capture_video(
+                frames_synchronizer,
+                &video_frame);
+
             if (persFrame->line_stride_in_bytes != video_frame.line_stride_in_bytes)
             {
                 persFrame->xres = video_frame.xres;
@@ -152,34 +151,76 @@ void NDI_Recv::run()
                 persFrame->picture_aspect_ratio = video_frame.picture_aspect_ratio;
 
                 if (persFrame->p_data)
-                    delete persFrame->p_data; 
+                    delete persFrame->p_data;
                 persFrame->p_data = nullptr;
             }
 
-            if(persFrame->p_data == nullptr)
+            if (persFrame->p_data == nullptr)
                 persFrame->p_data = (uint8_t*) new uint8_t[video_frame.line_stride_in_bytes * video_frame.yres];
 
             memcpy(persFrame->p_data, video_frame.p_data, video_frame.line_stride_in_bytes * video_frame.yres);
 
-            if(frames)
+            if (frames)
                 frames->push(persFrame);
-            NDIlib_recv_free_video_v2(rec_instance, &video_frame);
-            break;
-        }
 
-        // Meta data
-        case NDIlib_frame_type_metadata:
-            //printf("Length: %d\nMeta: %s \n", metadata_frame.length, metadata_frame.p_data);
-            NDIlib_recv_free_metadata(rec_instance, &metadata_frame);
-            break;
-            // There is a status change on the receiver (e.g. new web interface)
-        case NDIlib_frame_type_status_change:
-            printf("Receiver connection status changed.\n");
-            break;
-            // Everything else
-        default:
-            break;
+            NDIlib_framesync_free_video(frames_synchronizer, &video_frame);
+
+            std::this_thread::sleep_for(std::chrono::milliseconds(10)); // at 50fps, the rate will be 20ms per frame.
+
         }
+        else {
+            switch (NDIlib_recv_capture_v2(rec_instance, &video_frame, NULL, &metadata_frame, timeout)) {
+                // No data
+            case NDIlib_frame_type_none:
+                break;
+                // Video data
+            case NDIlib_frame_type_video:
+            {
+                if (persFrame->line_stride_in_bytes != video_frame.line_stride_in_bytes)
+                {
+                    persFrame->xres = video_frame.xres;
+                    persFrame->yres = video_frame.yres;
+                    persFrame->data_size_in_bytes = video_frame.data_size_in_bytes;
+                    persFrame->line_stride_in_bytes = video_frame.line_stride_in_bytes;
+                    persFrame->FourCC = video_frame.FourCC;
+                    persFrame->frame_format_type = video_frame.frame_format_type;
+                    persFrame->timecode = video_frame.timecode;
+                    persFrame->timestamp = video_frame.timestamp;
+                    persFrame->p_metadata = video_frame.p_metadata;
+                    persFrame->frame_rate_D = video_frame.frame_rate_D;
+                    persFrame->frame_rate_N = video_frame.frame_rate_N;
+                    persFrame->picture_aspect_ratio = video_frame.picture_aspect_ratio;
+
+                    if (persFrame->p_data)
+                        delete persFrame->p_data;
+                    persFrame->p_data = nullptr;
+                }
+
+                if (persFrame->p_data == nullptr)
+                    persFrame->p_data = (uint8_t*) new uint8_t[video_frame.line_stride_in_bytes * video_frame.yres];
+
+                memcpy(persFrame->p_data, video_frame.p_data, video_frame.line_stride_in_bytes * video_frame.yres);
+
+                if (frames)
+                    frames->push(persFrame);
+                NDIlib_recv_free_video_v2(rec_instance, &video_frame);
+                break;
+            }
+
+            // Meta data
+            case NDIlib_frame_type_metadata:
+                //printf("Length: %d\nMeta: %s \n", metadata_frame.length, metadata_frame.p_data);
+                NDIlib_recv_free_metadata(rec_instance, &metadata_frame);
+                break;
+                // There is a status change on the receiver (e.g. new web interface)
+            case NDIlib_frame_type_status_change:
+                printf("Receiver connection status changed.\n");
+                break;
+                // Everything else
+            default:
+                break;
+            }
+        }  
     }
 }
 

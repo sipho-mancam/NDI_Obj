@@ -19,6 +19,10 @@
 
 
 #define PREROLL 3
+#ifndef assert
+#define assert(e) ()
+#endif // !assert
+
 
 class DeckLinkCard;
 class DeckLinkPlaybackCallback;
