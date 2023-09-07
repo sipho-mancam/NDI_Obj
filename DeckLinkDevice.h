@@ -43,9 +43,6 @@
 #include <vector>
 #include "DeckLinkAPI_h.h"
 
-#ifndef assert
-#define assert(e) ( e )
-#endif // !assert
 
 #pragma once
 
