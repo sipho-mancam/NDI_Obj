@@ -46,10 +46,14 @@ int main()
     if (disp_mode != 1 && disp_mode != 0)
         disp_mode = 1;
 
+    system("cls");
     DeckLinkCard* card = new DeckLinkCard();
-
     DeckLinkOutputPort* fillPort = card->SelectOutputPort(3, disp_mode);
     DeckLinkOutputPort* keyPort = card->SelectOutputPort(2, disp_mode);
+    
+    std::cout << "[info]: Using DeckLink (4) and DeckLink (3) as Key and Fill Ports." << std::endl;
+    std::cout << "Press any key to continue ..." << std::endl;
+    _getch();
 
     DeckLinkInputPort* camera_input = card->SelectInputPort(0);
     CameraOutputPort* camera_output = card->SelectCamOutputPort(2, disp_mode);
@@ -75,7 +79,7 @@ int main()
         if (((std::chrono::high_resolution_clock::now() - start) >= std::chrono::seconds(1)))
         {
             // update the user list
-            discovery->showMeList();
+            discovery->showMeList(disp_mode);
             start = std::chrono::high_resolution_clock::now();
         }
 
@@ -93,7 +97,7 @@ int main()
                 system("cls");
 
                 // show the most recent list...
-                discovery->showMeList();
+                discovery->showMeList(disp_mode);
                 std::cout << "Selected Device using index (0, 1, 2 ...etc): ";
                 std::cin >> choice;
                 std::string s = discovery->selectDevice(choice);

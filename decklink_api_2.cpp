@@ -156,7 +156,8 @@ DeckLinkCard::DeckLinkCard()
     {
         unconfiguredPorts.push_back(port);
     }
-    std::cout << "Decklink Device Initialized successfully ..." << std::endl;
+    std::cout << "[info]: Decklink Device Initialized successfully ..." << std::endl;
+    std::cout << "[info]: Found: (" << unconfiguredPorts.size() << ") Decklink Ports on the system" << std::endl;
 }
 
 HRESULT DeckLinkCard::checkError(bool fatal)
@@ -447,11 +448,11 @@ void DeckLinkOutputPort::run()
                 // now convert frame from bgra to YUV
                 if (!conversion)
                 {
-                    assert(S_OK == GetDeckLinkFrameConverter(&conversion));
-                    assert(S_OK == conversion->ConvertFrame(iframe, frame));
+                    GetDeckLinkFrameConverter(&conversion);
+                    conversion->ConvertFrame(iframe, frame);
                 }
                 else {
-                    assert(S_OK == conversion->ConvertFrame(iframe, frame));
+                    conversion->ConvertFrame(iframe, frame);
                 }
 
                 playFrameBack();
@@ -523,6 +524,7 @@ std::queue<IDeckLinkVideoFrame*>* DeckLinkOutputPort::get_output_q()
 
 void DeckLinkOutputPort::AddFrame(void* frameBuffer, size_t size)
 {
+    uchar* buffer;
     if (!srcFrame)
     {
         IDeckLinkDisplayMode* d_mode = displayModes[selectedMode];
@@ -541,17 +543,24 @@ void DeckLinkOutputPort::AddFrame(void* frameBuffer, size_t size)
             return;
         }
         else {
-            uchar* buffer;
             srcFrame->GetBytes((void**) & buffer);
             memcpy(buffer, frameBuffer, size);
         }
         
     }
     else {
-        uchar* buffer;
         srcFrame->GetBytes((void**)&buffer);
         memcpy(buffer, frameBuffer, size);
     }
+
+   /* if (pixelFormat == bmdFormat8BitBGRA)
+    {
+        cv::Mat preview;
+        preview.create(cv::Size(1920, 1080), CV_8UC4);
+        preview.data = (uchar*)buffer;
+        cv::imshow("Preview", preview);
+        cv::waitKey(1);
+    }*/
    
     if (frames_q == nullptr)
     {

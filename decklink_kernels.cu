@@ -1,6 +1,14 @@
 
-#include "decklink_kernels.cuh"
+#include "decklink_kernels.hpp"
 #include <opencv2/opencv.hpp>
+
+#define CHECK_CUDA_ERROR(status)  \
+		if(status != cudaSuccess) \
+		{ \
+			std::cerr << cudaGetErrorString(status) <<" \n"<< __FILE__<< " : " << __LINE__ <<std::endl;	\
+			assert(status == cudaSuccess); \
+		} \
+
 
 inline __device__ __host__ double clamp(double f, double a, double b)
 {
@@ -207,6 +215,7 @@ void alpha_2_decklink(long width, long height, uchar* alpha_channel /*Host buffe
 	cudaFree(gpuBuf_out);
 }
 
+uint* gpuBuf_out = nullptr;
 
 void alpha_2_decklink_gpu(long width, long height, uchar* alpha_channel /*GPU Buffer*/, uint** output /*CPU Buffer*/)
 {
@@ -215,13 +224,18 @@ void alpha_2_decklink_gpu(long width, long height, uchar* alpha_channel /*GPU Bu
 	const dim3 block(16, 16); // 256 threads per block..
 	const dim3 grid(width / (2 * block.x), round(height + 8 / block.y));
 
-	uint* gpuBuf_out;
-	uint* cpuOut;
-
+	
+	uint* cpuOut = nullptr;
 	size_t packedSize = (width / 2) * height * sizeof(uint);
 
-	assert(cudaSuccess == cudaMallocHost((void**)&cpuOut, packedSize));
-	assert(cudaMalloc((void**)&gpuBuf_out, packedSize) == cudaSuccess);
+	if (*output == nullptr) {
+		CHECK_CUDA_ERROR(cudaMallocHost((void**)&cpuOut, packedSize));
+	}
+	else {
+		cpuOut = *output;
+	}
+	if(gpuBuf_out == nullptr)
+		CHECK_CUDA_ERROR(cudaMalloc((void**)&gpuBuf_out, packedSize));
 
 	alpha_2_yuyv_pack << < grid, block >> > (
 		alpha_channel,
@@ -230,16 +244,13 @@ void alpha_2_decklink_gpu(long width, long height, uchar* alpha_channel /*GPU Bu
 		);
 
 	cudaStatus = cudaGetLastError();
-	assert(cudaStatus == cudaSuccess);
-	assert(cudaSuccess == cudaDeviceSynchronize());
+	CHECK_CUDA_ERROR(cudaStatus);
+	CHECK_CUDA_ERROR(cudaDeviceSynchronize());
 
 	cudaStatus = cudaMemcpy(cpuOut, gpuBuf_out, packedSize, cudaMemcpyDeviceToHost);
-	assert(cudaStatus == cudaSuccess);
+	CHECK_CUDA_ERROR(cudaStatus);
 
 	*output = cpuOut;
-
-	cudaFree(alpha_channel);
-	cudaFree(gpuBuf_out);
 }
 
 __global__ void alpha_2_yuyv_pack(uchar* source, uint* dst, size_t width, size_t height)
@@ -272,16 +283,25 @@ void get_alpha_channel(long width, long height, uchar* bgra, uchar** alpha_out)
 	const dim3 block(16, 16); // 256 threads per block..
 	const dim3 grid(width / block.x, height / block.y);
 
-	uchar* in_gpu_buf; // bgra pinned and gpu buffers
-	uchar* pinned_alpha, * out_alpha;
+	uchar* in_gpu_buf  = nullptr; // bgra pinned and gpu buffers
+	uchar* pinned_alpha = nullptr, * out_alpha = nullptr;
 
 	size_t bgra_size = width * height * 4;
 	size_t alpha_size = width * height * 1;
 
-	assert(cudaSuccess == cudaMalloc((void**)&in_gpu_buf, bgra_size));
-	assert(cudaSuccess == cudaMemcpy(in_gpu_buf, bgra, bgra_size, cudaMemcpyHostToDevice));
+	CHECK_CUDA_ERROR(cudaMalloc((void**)&in_gpu_buf, bgra_size));
+	
+
+	CHECK_CUDA_ERROR(cudaMemcpy(in_gpu_buf, bgra, bgra_size, cudaMemcpyHostToDevice));
 	// BGRA data is now in device memory. ...
-	assert(cudaSuccess == cudaMalloc((void**)&out_alpha, alpha_size));
+	if (*alpha_out == nullptr)
+	{
+		CHECK_CUDA_ERROR(cudaMalloc((void**)&out_alpha, alpha_size));
+	}
+	else {
+		out_alpha = *alpha_out;
+	}
+	
 
 	bgra_2_alpha << <grid, block >> > (
 		in_gpu_buf,
@@ -290,16 +310,11 @@ void get_alpha_channel(long width, long height, uchar* bgra, uchar** alpha_out)
 		);
 
 	cudaStatus = cudaGetLastError();
-	assert(cudaStatus == cudaSuccess);
-	assert(cudaSuccess == cudaDeviceSynchronize());
-
-	//assert(cudaSuccess == cudaMallocHost((void**)&pinned_alpha, alpha_size));
-	//assert(cudaSuccess == cudaMemcpy(pinned_alpha, out_alpha, alpha_size, cudaMemcpyDeviceToHost));
+	CHECK_CUDA_ERROR(cudaStatus);
+	CHECK_CUDA_ERROR(cudaDeviceSynchronize());
 
 	*alpha_out = out_alpha;
-
 	cudaFree(in_gpu_buf);
-	//cudaFree(out_alpha);
 }
 
 
@@ -312,7 +327,7 @@ void get_alpha_channel_gpu(long width, long height, uchar* bgra /*GPU buffer*/, 
 	uchar* out_alpha;
 	size_t alpha_size = width * height;
 
-	assert(cudaSuccess == cudaMalloc((void**)&out_alpha, alpha_size));
+	CHECK_CUDA_ERROR(cudaMalloc((void**)&out_alpha, alpha_size));
 
 	bgra_2_alpha << <grid, block >> > (
 		bgra,
@@ -321,8 +336,8 @@ void get_alpha_channel_gpu(long width, long height, uchar* bgra /*GPU buffer*/, 
 		);
 
 	cudaStatus = cudaGetLastError();
-	assert(cudaStatus == cudaSuccess);
-	assert(cudaSuccess == cudaDeviceSynchronize());
+	CHECK_CUDA_ERROR(cudaSuccess);
+	CHECK_CUDA_ERROR(cudaDeviceSynchronize());
 
 	*alpha_out = out_alpha;
 

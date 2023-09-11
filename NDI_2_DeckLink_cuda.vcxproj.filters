@@ -58,7 +58,7 @@
     <ClCompile Include="interface_manager.cpp">
       <Filter>InterfaceMan</Filter>
     </ClCompile>
-    <ClCompile Include="ndi_api.cpp">
+    <ClCompile Include="ndi_api.cu">
       <Filter>NDI</Filter>
     </ClCompile>
     <ClCompile Include="platform.cpp">
@@ -84,7 +84,7 @@
     <ClInclude Include="targetver.h">
       <Filter>HeaderFiles</Filter>
     </ClInclude>
-    <ClInclude Include="decklink_kernels.cuh">
+    <ClInclude Include="decklink_kernels.hpp">
       <Filter>CudaHeaders</Filter>
     </ClInclude>
     <ClInclude Include="decklink_api.hpp">

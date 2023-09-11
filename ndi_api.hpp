@@ -12,6 +12,10 @@
 #include <conio.h>
 #include <exception>
 
+#include "device_launch_parameters.h"
+#include "cuda_runtime.h"
+#include "decklink_kernels.hpp"
+
 #ifdef _WIN32
 #include <windows.h>
 #endif
@@ -29,7 +33,7 @@
 #include "NDI_constants.hpp"
 #include "common.hpp"
 #include "decklinkAPI.hpp"
-#include "decklink_kernels.cuh"
+#include "decklink_kernels.hpp"
 
 static uint32_t ids = 0;
 
@@ -87,7 +91,7 @@ public:
     void run() override;
     void start();
     void stop();
-    void showMeList();
+    void showMeList(int mode = 0);
     std::string selectDevice(int s);
     std::string getSelectedDevice() { return selected_device; }
     std::set<std::string> getDiscoveredSources();
@@ -178,7 +182,6 @@ public:
     void enableFillAndKey() { this->fillAndKey = true; }
     void disableFillAndKey() { this->fillAndKey = false; }
     void setKeyAndFillPorts(DeckLinkOutputPort* f, DeckLinkOutputPort* k);
-
     ~NDI_Key_And_Fill();
 
 };

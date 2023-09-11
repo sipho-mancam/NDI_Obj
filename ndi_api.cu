@@ -81,12 +81,12 @@ void Discovery::stop() {
     }
 }
 
-void Discovery::showMeList()
+void Discovery::showMeList(int mode)
 {
     frozen_list.clear(); // clean the frozen least, so that it's consistent with the display ...
 
     system("cls");
-    printf("\n\tNDI sources on the Network %s\n", selected_device.empty() ? "" : std::string("--> " + selected_device).c_str());
+    printf("\n\t (%s) NDI sources on the Network %s\n",mode == 0?"1080i":"2160p", selected_device.empty() ? "" : std::string("--> " + selected_device).c_str());
     printf("\t-----------------------------------------\n");
     int i = 0;
     for (std::string s : this->discovered_sources)
@@ -129,46 +129,47 @@ void NDI_Recv::run()
         NDIlib_audio_frame_v2_t audio_frame;
         NDIlib_metadata_frame_t metadata_frame;
 
-        if (!frames_synchronizer) // remember to enable this for it to work but removing the inverting instruction
+        //if (!frames_synchronizer) // remember to enable this for it to work but removing the inverting instruction
+        //{
+        //    NDIlib_framesync_capture_video(
+        //        frames_synchronizer,
+        //        &video_frame);
+
+        //    if (persFrame->line_stride_in_bytes != video_frame.line_stride_in_bytes)
+        //    {
+        //        persFrame->xres = video_frame.xres;
+        //        persFrame->yres = video_frame.yres;
+        //        persFrame->data_size_in_bytes = video_frame.data_size_in_bytes;
+        //        persFrame->line_stride_in_bytes = video_frame.line_stride_in_bytes;
+        //        persFrame->FourCC = video_frame.FourCC;
+        //        persFrame->frame_format_type = video_frame.frame_format_type;
+        //        persFrame->timecode = video_frame.timecode;
+        //        persFrame->timestamp = video_frame.timestamp;
+        //        persFrame->p_metadata = video_frame.p_metadata;
+        //        persFrame->frame_rate_D = video_frame.frame_rate_D;
+        //        persFrame->frame_rate_N = video_frame.frame_rate_N;
+        //        persFrame->picture_aspect_ratio = video_frame.picture_aspect_ratio;
+
+        //        if (persFrame->p_data)
+        //            delete persFrame->p_data;
+        //        persFrame->p_data = nullptr;
+        //    }
+
+        //    if (persFrame->p_data == nullptr)
+        //        persFrame->p_data = (uint8_t*) new uint8_t[video_frame.line_stride_in_bytes * video_frame.yres];
+
+        //    memcpy(persFrame->p_data, video_frame.p_data, video_frame.line_stride_in_bytes * video_frame.yres);
+
+        //    if (frames)
+        //        frames->push(persFrame);
+
+        //    NDIlib_framesync_free_video(frames_synchronizer, &video_frame);
+
+        //    std::this_thread::sleep_for(std::chrono::milliseconds(10)); // at 50fps, the rate will be 20ms per frame.
+
+        //}
+        //else 
         {
-            NDIlib_framesync_capture_video(
-                frames_synchronizer,
-                &video_frame);
-
-            if (persFrame->line_stride_in_bytes != video_frame.line_stride_in_bytes)
-            {
-                persFrame->xres = video_frame.xres;
-                persFrame->yres = video_frame.yres;
-                persFrame->data_size_in_bytes = video_frame.data_size_in_bytes;
-                persFrame->line_stride_in_bytes = video_frame.line_stride_in_bytes;
-                persFrame->FourCC = video_frame.FourCC;
-                persFrame->frame_format_type = video_frame.frame_format_type;
-                persFrame->timecode = video_frame.timecode;
-                persFrame->timestamp = video_frame.timestamp;
-                persFrame->p_metadata = video_frame.p_metadata;
-                persFrame->frame_rate_D = video_frame.frame_rate_D;
-                persFrame->frame_rate_N = video_frame.frame_rate_N;
-                persFrame->picture_aspect_ratio = video_frame.picture_aspect_ratio;
-
-                if (persFrame->p_data)
-                    delete persFrame->p_data;
-                persFrame->p_data = nullptr;
-            }
-
-            if (persFrame->p_data == nullptr)
-                persFrame->p_data = (uint8_t*) new uint8_t[video_frame.line_stride_in_bytes * video_frame.yres];
-
-            memcpy(persFrame->p_data, video_frame.p_data, video_frame.line_stride_in_bytes * video_frame.yres);
-
-            if (frames)
-                frames->push(persFrame);
-
-            NDIlib_framesync_free_video(frames_synchronizer, &video_frame);
-
-            std::this_thread::sleep_for(std::chrono::milliseconds(10)); // at 50fps, the rate will be 20ms per frame.
-
-        }
-        else {
             switch (NDIlib_recv_capture_v2(rec_instance, &video_frame, NULL, &metadata_frame, timeout)) {
                 // No data
             case NDIlib_frame_type_none:
@@ -451,11 +452,16 @@ NDI_Key_And_Fill::NDI_Key_And_Fill(bool* controller, uint32_t c, std::string s)
     enableFillAndKey();
 }
 
+
+
 void NDI_Key_And_Fill::run()
 {
     cv::Mat preview;
-    std::vector<cv::Mat> channels;
-    
+    //cv::namedWindow("Preview", cv::WINDOW_NORMAL);
+
+    uint* key_packed = nullptr;
+    uchar* alpha_channel = nullptr;
+
     while (!(*exit) && running)
     {
         // The descriptors
@@ -463,34 +469,35 @@ void NDI_Key_And_Fill::run()
         NDIlib_audio_frame_v2_t audio_frame;
         NDIlib_metadata_frame_t metadata_frame;
 
-        if (!frames_synchronizer) // remember to enable this for it to work but removing the inverting instruction
-        {
-            NDIlib_framesync_capture_video(
-                frames_synchronizer,
-                &video_frame);
+        //if (!frames_synchronizer) // remember to enable this for it to work but removing the inverting instruction
+        //{
+        //    NDIlib_framesync_capture_video(
+        //        frames_synchronizer,
+        //        &video_frame);
 
-            // sleep for frame duration
-            if (fillPort != nullptr && keyPort != nullptr)
-            {
-                // prevent all dynamic memory allocations from local functions, allocations must be done only once. (GPU)
-                uchar* alpha_channel;
-                get_alpha_channel(video_frame.xres, video_frame.yres, video_frame.p_data, &alpha_channel);
-                uint* key_packed;
-                alpha_2_decklink_gpu(video_frame.xres, video_frame.yres, alpha_channel, &key_packed); // optimize this to belong to the
-                // class and use fixed memory allocations.
+        //    // sleep for frame duration
+        //    if (fillPort != nullptr && keyPort != nullptr)
+        //    {
+        //        
+        //       
+        //        //// class and use fixed memory allocations.
+        //        //fillPort->AddFrame(video_frame.p_data, video_frame.yres * video_frame.line_stride_in_bytes);
+        //        //keyPort->AddFrame(key_packed, video_frame.yres * sizeof(uint) * (video_frame.xres / 2));
 
-                fillPort->AddFrame(video_frame.p_data, video_frame.yres * video_frame.line_stride_in_bytes);
-                keyPort->AddFrame(key_packed, video_frame.yres * sizeof(uint) * (video_frame.xres / 2));
+        //        // prevent all dynamic memory allocations from local functions, allocations must be done only once. (GPU)
+        //        get_alpha_channel(video_frame.xres, video_frame.yres, video_frame.p_data, &alpha_channel);
+        //        alpha_2_decklink_gpu(video_frame.xres, video_frame.yres, alpha_channel, &key_packed); // optimize this to belong to the
 
-                cudaFreeHost(key_packed);
-            }
 
-            NDIlib_framesync_free_video(frames_synchronizer, &video_frame);
+        //        cudaFreeHost(key_packed);
+        //    }
 
-            std::this_thread::sleep_for(std::chrono::milliseconds(10)); // at 50fps, the rate will be 20ms per frame.
+        //    NDIlib_framesync_free_video(frames_synchronizer, &video_frame);
 
-        }
-        else // this is how we read the frames without the frames synchronizer.
+        //    std::this_thread::sleep_for(std::chrono::milliseconds(10)); // at 50fps, the rate will be 20ms per frame.
+
+        //}
+        //else // this is how we read the frames without the frames synchronizer.
         {
             switch (NDIlib_recv_capture_v2(rec_instance, &video_frame, NULL, NULL, timeout)) {
                 // No data
@@ -499,20 +506,28 @@ void NDI_Key_And_Fill::run()
                 // Video data
             case NDIlib_frame_type_video:
             {
-                if (fillPort != nullptr && keyPort != nullptr)
+                if (video_frame.FourCC == NDIlib_FourCC_type_BGRA)
                 {
+                    if (fillPort != nullptr && keyPort != nullptr)
+                    {
+                        get_alpha_channel(video_frame.xres, video_frame.yres, video_frame.p_data, &alpha_channel);
+                        if (alpha_channel == nullptr)
+                        {
+                            std::cout << "Alpha Channel is null, function get_alpha_channel() never called." << std::endl;
+                        }
 
-                    uchar* alpha_channel;
-                    get_alpha_channel(video_frame.xres, video_frame.yres, video_frame.p_data, &alpha_channel);
-                    uint* key_packed;
-                    alpha_2_decklink_gpu(video_frame.xres, video_frame.yres, alpha_channel, &key_packed);
+                        alpha_2_decklink_gpu(video_frame.xres, video_frame.yres, alpha_channel, &key_packed);
+                        if (key_packed == nullptr)
+                        {
+                           std::cout << "Key_packed is nul, function alpha_2_decklink_gpu() never called." << std::endl;
+                        }
 
-                    fillPort->AddFrame(video_frame.p_data, video_frame.yres * video_frame.line_stride_in_bytes);
-                    keyPort->AddFrame(key_packed, video_frame.yres * sizeof(uint) * (video_frame.xres / 2));
-
-                    cudaFreeHost(key_packed);
+                        fillPort->AddFrame(video_frame.p_data, video_frame.yres * video_frame.line_stride_in_bytes);
+                        keyPort->AddFrame(key_packed, video_frame.yres * sizeof(uint) * (video_frame.xres / 2));
+                        
+                    }
                 }
-
+                
                 NDIlib_recv_free_video_v2(rec_instance, &video_frame);
                 break;
             }
@@ -527,6 +542,7 @@ void NDI_Key_And_Fill::run()
             }
         } 
     }
+    cudaFreeHost(key_packed);
 }
 
 

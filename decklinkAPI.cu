@@ -2,7 +2,7 @@
 
 #include "cuda_runtime_api.h"
 #include "device_launch_parameters.h"
-#include "decklink_kernels.cuh"
+#include "decklink_kernels.hpp"
 
 void VideoFrameCallback::unpack_10bit_yuv()
 {
