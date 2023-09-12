@@ -457,7 +457,7 @@ NDI_Key_And_Fill::NDI_Key_And_Fill(bool* controller, uint32_t c, std::string s)
 void NDI_Key_And_Fill::run()
 {
     cv::Mat preview;
-    cv::namedWindow("Preview", cv::WINDOW_NORMAL);
+    //cv::namedWindow("Preview", cv::WINDOW_NORMAL);
 
     uint* key_packed = nullptr;
     uchar* alpha_channel = nullptr;
@@ -466,81 +466,79 @@ void NDI_Key_And_Fill::run()
     {
         // The descriptors
         NDIlib_video_frame_v2_t video_frame;
-        NDIlib_audio_frame_v2_t audio_frame;
-        NDIlib_metadata_frame_t metadata_frame;
-
-        //if (!frames_synchronizer) // remember to enable this for it to work but removing the inverting instruction
-        //{
-        //    NDIlib_framesync_capture_video(
-        //        frames_synchronizer,
-        //        &video_frame);
-
-        //    // sleep for frame duration
-        //    if (fillPort != nullptr && keyPort != nullptr)
-        //    {
-        //        
-        //       
-        //        //// class and use fixed memory allocations.
-        //        //fillPort->AddFrame(video_frame.p_data, video_frame.yres * video_frame.line_stride_in_bytes);
-        //        //keyPort->AddFrame(key_packed, video_frame.yres * sizeof(uint) * (video_frame.xres / 2));
-
-        //        // prevent all dynamic memory allocations from local functions, allocations must be done only once. (GPU)
-        //        get_alpha_channel(video_frame.xres, video_frame.yres, video_frame.p_data, &alpha_channel);
-        //        alpha_2_decklink_gpu(video_frame.xres, video_frame.yres, alpha_channel, &key_packed); // optimize this to belong to the
-
-
-        //        cudaFreeHost(key_packed);
-        //    }
-
-        //    NDIlib_framesync_free_video(frames_synchronizer, &video_frame);
-
-        //    std::this_thread::sleep_for(std::chrono::milliseconds(10)); // at 50fps, the rate will be 20ms per frame.
-
-        //}
-        //else // this is how we read the frames without the frames synchronizer.
+       
+        if (frames_synchronizer)
         {
-            switch (NDIlib_recv_capture_v2(rec_instance, &video_frame, NULL, NULL, timeout)) {
-                // No data
-            case NDIlib_frame_type_none:
-                break;
-                // Video data
-            case NDIlib_frame_type_video:
+            NDIlib_framesync_capture_video(frames_synchronizer, &video_frame);
+
+            if (video_frame.xres == 0 || video_frame.p_data == nullptr)
+                continue;
+
+            auto start = std::chrono::high_resolution_clock::now();
+            if (video_frame.FourCC == NDIlib_FourCC_type_BGRA)
             {
-                if (video_frame.FourCC == NDIlib_FourCC_type_BGRA)
+                if (fillPort != nullptr && keyPort != nullptr)
                 {
-                    if (fillPort != nullptr && keyPort != nullptr)
-                    {
-                        get_alpha_channel(video_frame.xres, video_frame.yres, video_frame.p_data, &alpha_channel);
-                        if (alpha_channel == nullptr)
-                        {
-                            std::cout << "Alpha Channel is null, function get_alpha_channel() never called." << std::endl;
-                        }
+                    if (alpha_channel)
+                        cudaMemset(alpha_channel, 0, (video_frame.xres * video_frame.yres));
 
-                        alpha_2_decklink_gpu(video_frame.xres, video_frame.yres, alpha_channel, &key_packed);
-                        if (key_packed == nullptr)
-                        {
-                           std::cout << "Key_packed is nul, function alpha_2_decklink_gpu() never called." << std::endl;
-                        }
+                    get_alpha_channel(video_frame.xres, video_frame.yres, video_frame.p_data, &alpha_channel);
+                    alpha_2_decklink_gpu(video_frame.xres, video_frame.yres, alpha_channel, &key_packed);
 
-                        fillPort->AddFrame(video_frame.p_data, video_frame.yres * video_frame.line_stride_in_bytes);
-                        keyPort->AddFrame(key_packed, video_frame.yres * sizeof(uint) * (video_frame.xres / 2));
-                        
-                    }
+                    fillPort->AddFrame(video_frame.p_data, video_frame.yres * video_frame.line_stride_in_bytes);
+                    keyPort->AddFrame(key_packed, video_frame.yres * sizeof(uint) * (video_frame.xres / 2));
                 }
                 
-                NDIlib_recv_free_video_v2(rec_instance, &video_frame);
-                break;
             }
+
+            auto end = std::chrono::high_resolution_clock::now();
+           // std::cout << "Latency: " << (end - start).count() / 1000000.0 << " ms" << std::endl;
             
-            // There is a status change on the receiver (e.g. new web interface)
-            case NDIlib_frame_type_status_change:
-                printf("Receiver connection status changed.\n");
-                break;
-                // Everything else
-            default:
-                break;
-            }
-        } 
+            NDIlib_framesync_free_video(frames_synchronizer, &video_frame);
+            std::this_thread::sleep_for(std::chrono::milliseconds(40)-(end-start)); // at 50fps, the rate will be 20ms per frame.
+        }
+        //else // this is how we read the frames without the frames synchronizer.
+        //{
+        //    switch (NDIlib_recv_capture_v2(rec_instance, &video_frame, NULL, NULL, timeout)) {
+        //        // No data
+        //    case NDIlib_frame_type_none:
+        //        break;
+        //        // Video data
+        //    case NDIlib_frame_type_video:
+        //    {
+        //        if (video_frame.FourCC == NDIlib_FourCC_type_BGRA)
+        //        {
+        //            auto start = std::chrono::high_resolution_clock::now();
+        //            if (fillPort != nullptr && keyPort != nullptr)
+        //            {
+        //                if(alpha_channel)
+        //                    cudaMemset(alpha_channel, 0, (video_frame.xres * video_frame.yres));
+
+        //                get_alpha_channel(video_frame.xres, video_frame.yres, video_frame.p_data, &alpha_channel);
+        //                alpha_2_decklink_gpu(video_frame.xres, video_frame.yres, alpha_channel, &key_packed);
+        //               
+        //                fillPort->AddFrame(video_frame.p_data, video_frame.yres * video_frame.line_stride_in_bytes);
+        //                keyPort->AddFrame(key_packed, video_frame.yres * sizeof(uint) * (video_frame.xres / 2));
+        //                
+        //            }
+        //            auto end = std::chrono::high_resolution_clock::now();
+
+        //            std::cout << "Latency: " << (end - start).count() / 1000000.0 << " ms" << std::endl;
+        //        }
+        //        
+        //        NDIlib_recv_free_video_v2(rec_instance, &video_frame);
+        //        break;
+        //    }
+        //    
+        //    // There is a status change on the receiver (e.g. new web interface)
+        //    case NDIlib_frame_type_status_change:
+        //        printf("Receiver connection status changed.\n");
+        //        break;
+        //        // Everything else
+        //    default:
+        //        break;
+        //    }
+        //} 
     }
     cudaFreeHost(key_packed);
 }

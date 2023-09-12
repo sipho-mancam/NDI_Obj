@@ -23,6 +23,9 @@
 #define assert(e) ()
 #endif // !assert
 
+#define HD_MODE 0
+#define UHD_MODE 1
+
 
 class DeckLinkCard;
 class DeckLinkPlaybackCallback;

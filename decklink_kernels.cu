@@ -234,14 +234,18 @@ void alpha_2_decklink_gpu(long width, long height, uchar* alpha_channel /*GPU Bu
 	else {
 		cpuOut = *output;
 	}
-	if(gpuBuf_out == nullptr)
+	if (gpuBuf_out == nullptr) {
 		CHECK_CUDA_ERROR(cudaMalloc((void**)&gpuBuf_out, packedSize));
+	}	
+	else {
+		cudaStatus = cudaMemset(gpuBuf_out, 0, packedSize);
+		CHECK_CUDA_ERROR(cudaStatus);
+	}
 
-	cudaStatus = cudaMemset(cpuOut, 0, packedSize);
+	/*cudaStatus = cudaMemset(cpuOut, 0, packedSize);
+	CHECK_CUDA_ERROR(cudaStatus);*/
 
-	CHECK_CUDA_ERROR(cudaStatus);
-
-	alpha_2_yuyv_pack << < grid, block >> > (
+	alpha_2_yuyv_pack <<< grid, block >> > (
 		alpha_channel,
 		gpuBuf_out,
 		width, height
@@ -281,22 +285,30 @@ __global__ void alpha_2_yuyv_pack(uchar* source, uint* dst, size_t width, size_t
 
 }
 
+uchar* in_gpu_buf = nullptr; // bgra pinned and gpu buffers
+
 void get_alpha_channel(long width, long height, uchar* bgra, uchar** alpha_out)
 {
 	cudaError_t cudaStatus;
 	const dim3 block(16, 16); // 256 threads per block..
 	const dim3 grid(width / block.x, height / block.y);
 
-	uchar* in_gpu_buf  = nullptr; // bgra pinned and gpu buffers
+
 	uchar* pinned_alpha = nullptr, * out_alpha = nullptr;
 
 	size_t bgra_size = width * height * 4;
 	size_t alpha_size = width * height * 1;
 
-	CHECK_CUDA_ERROR(cudaMalloc((void**)&in_gpu_buf, bgra_size));
-	
 
+	if (in_gpu_buf == nullptr)
+	{
+		CHECK_CUDA_ERROR(cudaMalloc((void**)&in_gpu_buf, bgra_size));
+	}
+	else {
+		CHECK_CUDA_ERROR(cudaMemset(in_gpu_buf, 0, bgra_size));
+	}
 	CHECK_CUDA_ERROR(cudaMemcpy(in_gpu_buf, bgra, bgra_size, cudaMemcpyHostToDevice));
+	
 	// BGRA data is now in device memory. ...
 	if (*alpha_out == nullptr)
 	{
@@ -306,8 +318,7 @@ void get_alpha_channel(long width, long height, uchar* bgra, uchar** alpha_out)
 		out_alpha = *alpha_out;
 	}
 	
-
-	bgra_2_alpha << <grid, block >> > (
+	bgra_2_alpha <<<grid, block >> > (
 		in_gpu_buf,
 		out_alpha,
 		width, height
@@ -316,9 +327,7 @@ void get_alpha_channel(long width, long height, uchar* bgra, uchar** alpha_out)
 	cudaStatus = cudaGetLastError();
 	CHECK_CUDA_ERROR(cudaStatus);
 	CHECK_CUDA_ERROR(cudaDeviceSynchronize());
-
 	*alpha_out = out_alpha;
-	cudaFree(in_gpu_buf);
 }
 
 

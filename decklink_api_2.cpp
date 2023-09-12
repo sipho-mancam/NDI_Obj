@@ -352,7 +352,35 @@ DeckLinkOutputPort::DeckLinkOutputPort(DeckLinkCard* par, IDeckLink* por, int mo
        /* result = this->output->QueryInterface(IID_IDeckLinkProfileAttributes, (void**)&profileAttributes);
         assert(result == S_OK);*/
 
-        selectedMode = (mode == 1) ? 45 : 17; //9; v 17 // 1080p50 1920 x 1080 50 fps 
+        //selectedMode = (mode == 1) ? 45 : 17; //9; v 17 // 1080p50 1920 x 1080 50 fps 
+
+        std::string hd_mode_s = "1080i50";
+        std::string uhd_mode ="2160p50";
+
+        BSTR d_name;
+        int j;
+        // find the right string that point to 1080i or 2160p
+        for (j=0; j < displayModes.size(); j++)
+        {
+            displayModes[j]->GetName(&d_name);
+            std::string comp = DlToStdString(d_name);
+            switch (mode)
+            {
+            case HD_MODE:
+            {
+                if (hd_mode_s == comp)
+                    selectedMode = j;  
+                break;
+            }
+            case UHD_MODE:
+            {
+                if (uhd_mode == comp)
+                    selectedMode = j;
+                break;
+            }
+            }      
+        }
+
         displayMode = displayModes[selectedMode];
         configure();
     }
@@ -556,6 +584,7 @@ void DeckLinkOutputPort::AddFrame(void* frameBuffer, size_t size)
     else {
         uchar* buffer;
         srcFrame->GetBytes((void**)&buffer);
+        memset(buffer, 0, size);
         memcpy(buffer, frameBuffer, size);
     }
 
@@ -624,8 +653,12 @@ void DeckLinkOutputPort::playFrameBack()
             this->output->StartScheduledPlayback(0, scale, 1.0);
    }
    else {
-       
        cb->addFrame(frame);
+
+       if (output->GetBufferedVideoFrameCount(&buffered_frames) == S_OK)
+       {
+           std::cout << "Buffered Frames: " << buffered_frames << std::endl;
+       }
    }
 }
 
@@ -745,6 +778,7 @@ void DeckLinkPlaybackCallback::addFrame(IDeckLinkVideoFrame* frame)
         timeValue += PREROLL * f_duration - f_duration;
     }
     timeValue += f_duration;
+
     HRESULT result = m_port->ScheduleVideoFrame(frame, timeValue, f_duration, scale);
     if (S_OK != result)
     {
