@@ -180,6 +180,8 @@ DeckLinkOutputPort* DeckLinkCard::SelectOutputPort(int idx, int mode)
             DeckLinkOutputPort* p = new DeckLinkOutputPort(this, unconfiguredPorts[idx], mode);
             ports[idx] = p;
             selectedPorts.push_back(idx);
+
+            std::cout << "Port Selected Successfully" << std::endl;
             return p;
         }
         else {
@@ -338,16 +340,19 @@ DeckLinkOutputPort::DeckLinkOutputPort(DeckLinkCard* par, IDeckLink* por, int mo
 
         result = this->output->GetDisplayModeIterator(&displayModeIterator);
 
-        assert(result == S_OK);
+        if (result != S_OK)
+        {
+            std::cout << "There was an error getting a display mode iterator" << std::endl;
+        }
 
         while (displayModeIterator->Next(&displayMode) == S_OK)
         {
             displayModes.push_back(displayMode);
         }
-        result = this->output->QueryInterface(IID_IDeckLinkProfileAttributes, (void**)&profileAttributes);
-        assert(result == S_OK);
+       /* result = this->output->QueryInterface(IID_IDeckLinkProfileAttributes, (void**)&profileAttributes);
+        assert(result == S_OK);*/
 
-        selectedMode = mode == 1 ? 45 : 17; //9; // 1080p50 1920 x 1080 50 fps 
+        selectedMode = (mode == 1) ? 45 : 10; //9; v 17 // 1080p50 1920 x 1080 50 fps 
         displayMode = displayModes[selectedMode];
         configure();
     }

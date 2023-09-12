@@ -50,6 +50,11 @@ int main()
     DeckLinkCard* card = new DeckLinkCard();
     DeckLinkOutputPort* fillPort = card->SelectOutputPort(3, disp_mode);
     DeckLinkOutputPort* keyPort = card->SelectOutputPort(2, disp_mode);
+
+    if (fillPort == nullptr || keyPort == nullptr)
+    {
+        std::cout << "Key and Fill Ports could not be selected" << std::endl;
+    }
     
     std::cout << "[info]: Using DeckLink (4) and DeckLink (3) as Key and Fill Ports." << std::endl;
     std::cout << "Press any key to continue ..." << std::endl;
