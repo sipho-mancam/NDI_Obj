@@ -457,7 +457,7 @@ NDI_Key_And_Fill::NDI_Key_And_Fill(bool* controller, uint32_t c, std::string s)
 void NDI_Key_And_Fill::run()
 {
     cv::Mat preview;
-    //cv::namedWindow("Preview", cv::WINDOW_NORMAL);
+    cv::namedWindow("Preview", cv::WINDOW_NORMAL);
 
     uint* key_packed = nullptr;
     uchar* alpha_channel = nullptr;

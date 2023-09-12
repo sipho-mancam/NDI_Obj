@@ -352,7 +352,7 @@ DeckLinkOutputPort::DeckLinkOutputPort(DeckLinkCard* par, IDeckLink* por, int mo
        /* result = this->output->QueryInterface(IID_IDeckLinkProfileAttributes, (void**)&profileAttributes);
         assert(result == S_OK);*/
 
-        selectedMode = (mode == 1) ? 45 : 10; //9; v 17 // 1080p50 1920 x 1080 50 fps 
+        selectedMode = (mode == 1) ? 45 : 17; //9; v 17 // 1080p50 1920 x 1080 50 fps 
         displayMode = displayModes[selectedMode];
         configure();
     }
@@ -529,7 +529,6 @@ std::queue<IDeckLinkVideoFrame*>* DeckLinkOutputPort::get_output_q()
 
 void DeckLinkOutputPort::AddFrame(void* frameBuffer, size_t size)
 {
-    uchar* buffer;
     if (!srcFrame)
     {
         IDeckLinkDisplayMode* d_mode = displayModes[selectedMode];
@@ -548,12 +547,14 @@ void DeckLinkOutputPort::AddFrame(void* frameBuffer, size_t size)
             return;
         }
         else {
+            uchar* buffer;
             srcFrame->GetBytes((void**) & buffer);
             memcpy(buffer, frameBuffer, size);
         }
         
     }
     else {
+        uchar* buffer;
         srcFrame->GetBytes((void**)&buffer);
         memcpy(buffer, frameBuffer, size);
     }

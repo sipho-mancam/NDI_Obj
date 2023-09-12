@@ -237,6 +237,10 @@ void alpha_2_decklink_gpu(long width, long height, uchar* alpha_channel /*GPU Bu
 	if(gpuBuf_out == nullptr)
 		CHECK_CUDA_ERROR(cudaMalloc((void**)&gpuBuf_out, packedSize));
 
+	cudaStatus = cudaMemset(cpuOut, 0, packedSize);
+
+	CHECK_CUDA_ERROR(cudaStatus);
+
 	alpha_2_yuyv_pack << < grid, block >> > (
 		alpha_channel,
 		gpuBuf_out,

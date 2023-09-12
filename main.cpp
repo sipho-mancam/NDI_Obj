@@ -41,24 +41,24 @@ int main()
     int disp_mode = 0; // change the mode to either HD or UHD mode (1 = UHD, 0 = HD)
     
     int console_key = 0, choice = 0;
-    std::cout << "\n   ======= Select Mode =======\n\n0. HD\t(1920 x 1080 --- 1080i50)\n1. UHD\t(3840 x 2160 --- 2160p50)\nChoice: ";
+    /*std::cout << "\n   ======= Select Mode =======\n\n0. HD\t(1920 x 1080 --- 1080i50)\n1. UHD\t(3840 x 2160 --- 2160p50)\nChoice: ";
     std::cin >> disp_mode;
     if (disp_mode != 1 && disp_mode != 0)
-        disp_mode = 1;
+        disp_mode = 1;*/
 
     system("cls");
     DeckLinkCard* card = new DeckLinkCard();
     DeckLinkOutputPort* fillPort = card->SelectOutputPort(3, disp_mode);
-    DeckLinkOutputPort* keyPort = card->SelectOutputPort(2, disp_mode);
+    DeckLinkOutputPort* keyPort = card->SelectOutputPort(1, disp_mode);
 
     if (fillPort == nullptr || keyPort == nullptr)
     {
         std::cout << "Key and Fill Ports could not be selected" << std::endl;
     }
-    
+    /*
     std::cout << "[info]: Using DeckLink (4) and DeckLink (3) as Key and Fill Ports." << std::endl;
     std::cout << "Press any key to continue ..." << std::endl;
-    _getch();
+    _getch();*/
 
     DeckLinkInputPort* camera_input = card->SelectInputPort(0);
     CameraOutputPort* camera_output = card->SelectCamOutputPort(2, disp_mode);
