@@ -45,6 +45,7 @@
 #include <exception>
 #include <stdexcept>
 #include <iostream>
+#include <cassert>
 
 
 DeckLinkDevice::DeckLinkDevice(IDeckLink* device) :

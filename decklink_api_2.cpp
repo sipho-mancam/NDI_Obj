@@ -1,6 +1,5 @@
 #include "decklink_api.hpp"
 
-
 void VideoFrameObj::_updateRowBytes()
 {
     long w = this->width;
@@ -44,7 +43,7 @@ void VideoFrameObj::_updateRowBytes()
     data = malloc(static_cast<size_t>(this->rowBytes) * this->height);
 }
 
-HRESULT VideoFrameObj::GetBytes(void** buffer) 
+HRESULT VideoFrameObj::GetBytes(void** buffer)
 {
     if (data != nullptr)
     {
@@ -102,7 +101,7 @@ void VideoFrameObj::_testImageColorOut() // sets the image white  ;
 
 void VideoFrameObj::SetRowBytes(long bytes)
 {
-    this->rowBytes = bytes; 
+    this->rowBytes = bytes;
     if (data)
         free(data);
     data = (void*)malloc(rowBytes * height);
@@ -119,7 +118,7 @@ void VideoFrameObj::SetFrameData(const void* fData, size_t s)
     memcpy(this->data, fData, s);
 }
 
-VideoFrameObj::VideoFrameObj(long w, long h, BMDPixelFormat pxFormat, BMDFrameFlags flgs, void* d )
+VideoFrameObj::VideoFrameObj(long w, long h, BMDPixelFormat pxFormat, BMDFrameFlags flgs, void* d)
     : width(w), height(h), pixelFormat(pxFormat), flags(flgs), data(d)
 {
     ancillaryData = nullptr;
@@ -138,14 +137,11 @@ VideoFrameObj::~VideoFrameObj()
         free(data);
 }
 
-
 MVideoObject::MVideoObject(long w, long h, BMDPixelFormat pxFormat, BMDFrameFlags flgs, void* d)
     : IDeckLinkMutableVideoFrame()
 {
-    
+
 }
-
-
 
 DeckLinkCard::DeckLinkCard()
 {
@@ -174,7 +170,6 @@ HRESULT DeckLinkCard::checkError(bool fatal)
     return result;
 }
 
-
 DeckLinkOutputPort* DeckLinkCard::SelectOutputPort(int idx, int mode)
 {
     if (idx >= 0 && idx < unconfiguredPorts.size()) // Ports start counting from 1
@@ -190,6 +185,36 @@ DeckLinkOutputPort* DeckLinkCard::SelectOutputPort(int idx, int mode)
             // if it is selected, but it was already created ... just return it.
             try {
                 return ports.at(idx);
+            }
+            catch (std::out_of_range& e) {
+                std::cerr << "Port Already selected as input port..." << std::endl;
+                return nullptr;
+            }
+        }
+
+    }
+    return nullptr;
+}
+
+CameraOutputPort::CameraOutputPort(DeckLinkCard* card, IDeckLink* p, int mode)
+    : DeckLinkOutputPort(card, p, mode)
+{}
+
+CameraOutputPort* DeckLinkCard::SelectCamOutputPort(int idx, int mode)
+{
+    if (idx >= 0 && idx < unconfiguredPorts.size()) // Ports start counting from 1
+    {
+        if (!_selectedPort(idx))
+        {
+            CameraOutputPort* p = new CameraOutputPort(this, unconfiguredPorts[idx], mode);
+            ports[idx] = p;
+            selectedPorts.push_back(idx);
+            return p;
+        }
+        else {
+            // if it is selected, but it was already created ... just return it.
+            try {
+                return (CameraOutputPort*)ports.at(idx);
             }
             catch (std::out_of_range& e) {
                 std::cerr << "Port Already selected as input port..." << std::endl;
@@ -253,29 +278,27 @@ bool DeckLinkCard::_selectedPort(int c)
     return false;
 }
 
-
-HRESULT DeckLinkObject::checkError(std::string info , bool fatal)
+HRESULT DeckLinkObject::checkError(std::string info, bool fatal)
 {
     if (result != S_OK)
     {
-        std::cerr << std::string("Decklink API faild: ")+ std::string(__FILE__) << info << std::endl;
+        std::cerr << std::string("Decklink API faild: ") + std::string(__FILE__) << info << std::endl;
         if (fatal) return (HRESULT)-1L;
         return result;
     }
     return result;
 }
 
-
 IDeckLinkPort::IDeckLinkPort(DeckLinkCard* par, IDeckLink* po)
-    : parent(par), 
-    port(po), 
-    displayMode(nullptr), 
-    displayModeIterator(nullptr), 
-    pixelFormat(bmdFormat8BitYUV),
-    profileAttributes(nullptr), 
-    selectedMode(0), 
-    preview(false), 
-    previewThread(nullptr), 
+    : parent(par),
+    port(po),
+    displayMode(nullptr),
+    displayModeIterator(nullptr),
+    pixelFormat(bmdFormat10BitYUV),
+    profileAttributes(nullptr),
+    selectedMode(0),
+    preview(false),
+    previewThread(nullptr),
     running(false)
 {
 }
@@ -294,15 +317,16 @@ void IDeckLinkPort::SetPixelFormat(BMDPixelFormat pxF)
 }
 
 DeckLinkOutputPort::DeckLinkOutputPort(DeckLinkCard* par, IDeckLink* por, int mode)
-    : IDeckLinkPort(par, por), 
-    cb(nullptr), 
-    frame(nullptr), 
+    : IDeckLinkPort(par, por),
+    cb(nullptr),
+    frame(nullptr),
     frames_q(nullptr),
     rendering_thread(nullptr),
     srcFrame(nullptr),
     conversion(nullptr),
     _release_frames(nullptr),
-    m_referenceLocked(false)
+    m_referenceLocked(false),
+    selectedDMode(nullptr)
 {
     // mode = 0 (HD) ... mode = 1 (UHD 4K)
     result = port->QueryInterface(IID_IDeckLinkOutput, (void**)&this->output);
@@ -329,274 +353,6 @@ DeckLinkOutputPort::DeckLinkOutputPort(DeckLinkCard* par, IDeckLink* por, int mo
         configure();
     }
 }
-
-void DeckLinkOutputPort::start()
-{
-    running = true;
-    if (rendering_thread)
-    {
-        rendering_thread->join();
-        delete rendering_thread;
-    }
-        
-    rendering_thread = new std::thread(&DeckLinkOutputPort::run, this);
-}
-
-void DeckLinkOutputPort::stop()
-{
-    if (running)
-    {
-        running = false;
-        if (rendering_thread)
-        {
-            rendering_thread->join();
-            delete rendering_thread;
-        }    
-    }
-}
-
-void DeckLinkOutputPort::run()
-{
-    while (running)
-    {
-        if (frames_q != nullptr && !frames_q->empty())
-        {
-            VideoFrameObj* iframe = (VideoFrameObj*)frames_q->front();
-            frames_q->pop();
-            this->output->DisplayVideoFrameSync(iframe);
-            stop_clock = std::chrono::high_resolution_clock::now();
-            std::cout << ((stop_clock - start_clock).count() / 1000000) << " ms" << std::endl;
-        }
-    }
-}
-
-bool DeckLinkOutputPort::doesSupportVideoMode()
-{
-    dlbool_t displayModeSupported;
-
-    result = output->DoesSupportVideoMode(
-        bmdVideoConnectionUnspecified,
-        displayModes[selectedMode]->GetDisplayMode(),
-        pixelFormat,
-        bmdNoVideoOutputConversion,
-        bmdSupportedVideoModeDefault,
-        NULL,
-        &displayModeSupported
-    );
-
-    assert(result == S_OK);
-
-    return displayModeSupported == true;
-}
-
-void DeckLinkOutputPort::enableVideo()
-{
-    result = output->EnableVideoOutput(displayModes[selectedMode]->GetDisplayMode(), bmdVideoOutputFlagDefault);
-    assert(result == S_OK);
-}
-
-void DeckLinkOutputPort::configure()
-{   
-    assert(doesSupportVideoMode());
-    enableVideo();
-}
-
-void DeckLinkOutputPort::AddFrame(void* frameBuffer, size_t size)
-{
-    if (!srcFrame)
-    {
-        IDeckLinkDisplayMode* d_mode = displayModes[selectedMode];
-
-        result = output->CreateVideoFrame(
-            d_mode->GetWidth(),
-            d_mode->GetHeight(),
-            pixelFormat == bmdFormat8BitBGRA ? d_mode->GetWidth() * 4 : d_mode->GetWidth() * 2,
-            pixelFormat,
-            bmdFrameFlagDefault,
-            &srcFrame);
-
-        if (result != S_OK)
-        {
-            frame = nullptr;
-            return;
-        }
-        else {
-            uchar* buffer;
-            srcFrame->GetBytes((void**)&buffer);
-            memcpy(buffer, frameBuffer, size);
-        }
-
-    }
-    else {
-        uchar* buffer;
-        srcFrame->GetBytes((void**)&buffer);
-        memcpy(buffer, frameBuffer, size);
-    }
-
-    if (frames_q == nullptr)
-    {
-        frames_q = new std::queue<IDeckLinkVideoFrame*>();
-        frames_q->push(srcFrame);
-    }
-    else {
-
-        frames_q->push(srcFrame);
-    }
-
-    if (!running)
-        start();
-}
-
-void DeckLinkOutputPort::DisplayFrame()
-{
-    this->output->DisplayVideoFrameSync(this->frame);
-}
-
-void DeckLinkOutputPort::subscribe_2_q(std::queue<IDeckLinkVideoFrame*>* q)
-{
-    if (q)
-        frames_q = q;
-}
-
-
-void DeckLinkOutputPort::playFrameBack()
-{
-    BOOL playback_running;
-
-    this->output->IsScheduledPlaybackRunning(&playback_running);
-    static bool _ran = false;
-    unsigned int buffered_frames = 0;
-
-    static BMDTimeValue tv = (buffered_frames * 1000), duration = 1000;
-    static BMDTimeScale scale = 50000;
-
-    if (!playback_running)
-    {
-        if (!_ran)
-        {
-            displayMode->GetFrameRate(&duration, &scale);
-            if (output->GetBufferedVideoFrameCount(&buffered_frames) == S_OK)
-            {
-                tv = (buffered_frames * 1000);
-            }
-
-            cb->setDuration(duration);
-            cb->setTimeScale(scale);
-            cb->setTimeValue(0);
-
-
-            this->output->SetScheduledFrameCompletionCallback(cb);
-            _ran = true;
-        }
-        else {
-
-            if (output->GetBufferedVideoFrameCount(&buffered_frames) == S_OK)
-            {
-                tv = (buffered_frames * duration);
-            }
-            this->output->ScheduleVideoFrame(frame, tv, duration, scale);
-        }
-
-        if (buffered_frames >= PREROLL)
-            this->output->StartScheduledPlayback(0, scale, 1.0);
-    }
-    else {
-
-        cb->addFrame(frame);
-    }
-}
-
-void DeckLinkOutputPort::synchronize(bool* _sync)
-{
-    _release_frames = _sync;
-}
-
-std::queue<IDeckLinkVideoFrame*>* DeckLinkOutputPort::get_output_q()
-{
-    if (!frames_q)
-        frames_q = new std::queue<IDeckLinkVideoFrame*>();
-
-    return frames_q;
-}
-
-
-bool DeckLinkOutputPort::waitForReference()
-{
-    IDeckLinkStatus* m_decklinkStatus;
-    // wait indefinitely for the reference signal, or be cancel and go on free run.
-    result = port->QueryInterface(IID_IDeckLinkStatus, (void**)&m_decklinkStatus);
-    if (result != S_OK)
-    {
-        return false;
-    }
-
-    dlbool_t referenceLocked;
-    if (!m_decklinkStatus)
-        return false;
-
-    std::cout << "[info]: Waiting for reference signal..." << std::endl;
-
-    auto start = std::chrono::high_resolution_clock::now();
-
-    while (true)
-    {
-        if (m_decklinkStatus->GetFlag(bmdDeckLinkStatusReferenceSignalLocked, &referenceLocked) == S_OK && referenceLocked)
-        {
-            m_referenceLocked = true;
-            return true;
-        }
-
-        std::this_thread::sleep_for(std::chrono::milliseconds(50));
-
-        std::cout << "[info]: Waiting for Gen lock" << std::endl;
-        /*  if ((std::chrono::high_resolution_clock::now() - start) >= std::chrono::seconds(5))
-              break;*/
-    }
-    this->m_referenceLocked = false;
-    return false;
-}
-
-
-IDeckLinkMutableVideoFrame* DeckLinkOutputPort::get_Fill_frame(int w, int h)
-{
-    IDeckLinkMutableVideoFrame* frame;
-
-    result = output->CreateVideoFrame(w, h, w * 4, bmdFormat8BitBGRA, bmdFrameFlagDefault, &frame);
-
-    if (result == S_OK)
-        return frame;
-    return nullptr;
-}
-
-IDeckLinkMutableVideoFrame* DeckLinkOutputPort::get_Key_frame(int w, int h)
-{
-    IDeckLinkMutableVideoFrame* frame;
-
-    result = output->CreateVideoFrame(w, h, w * 2, bmdFormat8BitYUV, bmdFrameFlagDefault, &frame);
-
-    if (result == S_OK)
-        return frame;
-
-    return nullptr;
-}
-
-IDeckLinkMutableVideoFrame* DeckLinkOutputPort::get_mutable_frame(int w, int h)
-{
-    IDeckLinkMutableVideoFrame* frame;
-
-    result = output->CreateVideoFrame(
-        w,
-        h,
-        ((w + 47) / 48) * 128,
-        bmdFormat10BitYUV,
-        bmdFrameFlagDefault,
-        &frame);
-
-    if (result == S_OK)
-        return frame;
-    return nullptr;
-}
-
 
 int DeckLinkOutputPort::getModeIndex(int mode)
 {
@@ -633,8 +389,33 @@ int DeckLinkOutputPort::getModeIndex(int mode)
     }
 
     return s_mode;
+
+
 }
 
+void DeckLinkOutputPort::start()
+{
+    running = true;
+    if (rendering_thread)
+    {
+        rendering_thread->join();
+        delete rendering_thread;
+    }
+    rendering_thread = new std::thread(&DeckLinkOutputPort::run, this);
+}
+
+void DeckLinkOutputPort::stop()
+{
+    if (running)
+    {
+        running = false;
+        if (rendering_thread)
+        {
+            rendering_thread->join();
+            delete rendering_thread;
+        }
+    }
+}
 
 void DeckLinkOutputPort::auto_dectect_mode(IDeckLinkVideoFrame* vframe)
 {
@@ -692,17 +473,355 @@ bool DeckLinkOutputPort::resChanged(IDeckLinkVideoFrame* vFrame)
     return !(vWidth == width && height == vHeight);
 }
 
+void DeckLinkOutputPort::synchronize(bool* _sync)
+{
+    _release_frames = _sync;
+}
+
+bool DeckLinkOutputPort::waitForReference()
+{
+    IDeckLinkStatus* m_decklinkStatus;
+    // wait indefinitely for the reference signal, or be cancel and go on free run.
+    result = port->QueryInterface(IID_IDeckLinkStatus, (void**)&m_decklinkStatus);
+    if (result != S_OK)
+    {
+        return false;
+    }
+
+    dlbool_t referenceLocked;
+    if (!m_decklinkStatus)
+        return false;
+
+    std::cout << "[info]: Waiting for reference signal..." << std::endl;
+
+    auto start = std::chrono::high_resolution_clock::now();
+
+    while (true)
+    {
+        if (m_decklinkStatus->GetFlag(bmdDeckLinkStatusReferenceSignalLocked, &referenceLocked) == S_OK && referenceLocked)
+        {
+            m_referenceLocked = true;
+            return true;
+        }
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+        std::cout << "[info]: Waiting for Gen lock" << std::endl;
+        /*  if ((std::chrono::high_resolution_clock::now() - start) >= std::chrono::seconds(5))
+              break;*/
+    }
+
+    this->m_referenceLocked = false;
+    return false;
+}
+
+
+IDeckLinkMutableVideoFrame* DeckLinkOutputPort::get_Fill_frame(int w, int h)
+{
+    IDeckLinkMutableVideoFrame* frame;
+
+    result = output->CreateVideoFrame(w, h, w * 4, bmdFormat8BitBGRA, bmdFrameFlagDefault, &frame);
+
+    if (result == S_OK)
+        return frame;
+    return nullptr;
+}
+
+IDeckLinkMutableVideoFrame* DeckLinkOutputPort::get_Key_frame(int w, int h)
+{
+    IDeckLinkMutableVideoFrame* frame;
+
+    result = output->CreateVideoFrame(w, h, w * 2, bmdFormat8BitYUV, bmdFrameFlagDefault, &frame);
+
+    if (result == S_OK)
+        return frame;
+
+    return nullptr;
+}
+
+IDeckLinkMutableVideoFrame* DeckLinkOutputPort::get_mutable_frame(int w, int h)
+{
+    IDeckLinkMutableVideoFrame* frame;
+
+    result = output->CreateVideoFrame(
+        w,
+        h,
+        ((w + 47) / 48) * 128,
+        bmdFormat10BitYUV,
+        bmdFrameFlagDefault,
+        &frame);
+
+    if (result == S_OK)
+        return frame;
+    return nullptr;
+}
+
 BMDTimeValue DeckLinkOutputPort::getCurrentPBTime()
 {
     if (cb)
         return cb->getCurrentDisplayTime();
 }
 
+void DeckLinkOutputPort::run()
+{
+    waitForReference(); // this will wait for gen_lock, before starting the playback.
 
+    while (running)
+    {
+        if (!m_referenceLocked)
+            std::cout << "[info]: Waiting for Gen lock" << std::endl;
+        // if we are synchronized, wait for the flag .... or else ... just let it go.
+        if ((_release_frames != nullptr && *_release_frames) || (!_release_frames))
+        {
+            if (frames_q != nullptr && !frames_q->empty())
+            {
+                IDeckLinkMutableVideoFrame* iframe = (IDeckLinkMutableVideoFrame*)frames_q->front();
+                if (!frame)
+                {
+                    IDeckLinkDisplayMode* d_mode = displayModes[selectedMode];
+                    result = output->CreateVideoFrame(
+                        d_mode->GetWidth(),
+                        d_mode->GetHeight(),
+                        ((d_mode->GetWidth() + 47) / 48) * 128,
+                        bmdFormat10BitYUV,
+                        bmdFrameFlagDefault,
+                        &frame);
+                }
+                // now convert frame from bgra to YUV
+                if (!conversion)
+                {
+                    CHECK_DECK_ERROR(GetDeckLinkFrameConverter(&conversion));
+                    CHECK_DECK_ERROR(conversion->ConvertFrame(iframe, frame));
+                }
+                else {
+                    CHECK_DECK_ERROR(conversion->ConvertFrame(iframe, frame));
+                }
+
+                //playFrameBack();
+                //frames_q->pop(); 
+            }
+        }
+    }
+}
+
+void CameraOutputPort::run()
+{
+    waitForReference(); // this will wait for gen_lock, before starting the playback.
+
+    IDeckLinkDisplayMode* d_mode = displayModes[selectedMode];
+    result = output->CreateVideoFrame(
+        d_mode->GetWidth(),
+        d_mode->GetHeight(),
+        ((d_mode->GetWidth() + 47) / 48) * 128,
+        bmdFormat10BitYUV,
+        bmdFrameFlagDefault,
+        &frame);
+
+    BMDTimeValue frame_duration;
+    BMDTimeScale d_scale;
+
+    d_mode->GetFrameRate(&frame_duration, &d_scale);
+
+    int frame_rate = d_scale / frame_duration;
+    int m_seconds = (1000 / frame_rate);
+
+    while (running)
+    {
+        // if we are synchronized, wait for the flag .... or else ... just let it go.
+        if ((_release_frames != nullptr && *_release_frames) || (!_release_frames))
+        {
+            if (frames_q || !frames_q->empty())
+            {
+                IDeckLinkVideoFrame* vFrame = frames_q->front();
+                void* buffer = nullptr;
+                if (vFrame)vFrame->GetBytes(&buffer);
+                if (buffer)
+                {
+                    this->add_to_q(buffer, false);
+                }
+                vFrame->Release();
+            }
+            vMtx.lock();
+            playFrameBack();
+            vMtx.unlock();
+            std::this_thread::sleep_for(std::chrono::milliseconds(m_seconds)); // need to implement hardware reference clock here...
+        }
+    }
+}
+
+void CameraOutputPort::add_to_q(void* data, bool clear)
+{
+    vMtx.lock();
+    void* buffer;
+    frame->GetBytes(&buffer);
+
+    if (data)
+        memcpy(buffer, data, frame->GetRowBytes() * frame->GetHeight());
+
+    if (clear)
+        free(data);
+    vMtx.unlock();
+}
+
+bool DeckLinkOutputPort::doesSupportVideoMode()
+{
+    dlbool_t displayModeSupported;
+
+    result = output->DoesSupportVideoMode(
+        bmdVideoConnectionUnspecified,
+        displayModes[selectedMode]->GetDisplayMode(),
+        pixelFormat,
+        bmdNoVideoOutputConversion,
+        bmdSupportedVideoModeDefault,
+        NULL,
+        &displayModeSupported
+    );
+
+    assert(result == S_OK);
+
+    return displayModeSupported == true;
+}
+
+void DeckLinkOutputPort::enableVideo()
+{
+    result = output->EnableVideoOutput(displayModes[selectedMode]->GetDisplayMode(), bmdVideoOutputFlagDefault);
+    assert(result == S_OK);
+}
+
+void DeckLinkOutputPort::configure()
+{
+    assert(doesSupportVideoMode());
+    enableVideo();
+}
+
+std::queue<IDeckLinkVideoFrame*>* DeckLinkOutputPort::get_output_q()
+{
+    if (!frames_q)
+        frames_q = new std::queue<IDeckLinkVideoFrame*>();
+
+    return frames_q;
+}
+
+void DeckLinkOutputPort::AddFrame(void* frameBuffer, size_t size)
+{
+    if (!srcFrame)
+    {
+        IDeckLinkDisplayMode* d_mode = displayModes[selectedMode];
+
+        result = output->CreateVideoFrame(
+            d_mode->GetWidth(),
+            d_mode->GetHeight(),
+            pixelFormat == bmdFormat8BitBGRA ? d_mode->GetWidth() * 4 : d_mode->GetWidth() * 2,
+            pixelFormat,
+            bmdFrameFlagDefault,
+            &srcFrame);
+
+        if (result != S_OK)
+        {
+            frame = nullptr;
+            return;
+        }
+        else {
+            uchar* buffer;
+            srcFrame->GetBytes((void**)&buffer);
+            memcpy(buffer, frameBuffer, size);
+        }
+
+    }
+    else {
+        uchar* buffer;
+        srcFrame->GetBytes((void**)&buffer);
+        memcpy(buffer, frameBuffer, size);
+    }
+
+    if (frames_q == nullptr)
+    {
+        frames_q = new std::queue<IDeckLinkVideoFrame*>();
+        frames_q->push(srcFrame);
+    }
+    else {
+
+        frames_q->push(srcFrame);
+    }
+
+    if (!running)
+        start();
+
+    //this->output->DisplayVideoFrameSync(frame);
+}
+
+void DeckLinkOutputPort::playFrameBack()
+{
+    BOOL playback_running;
+
+    this->output->IsScheduledPlaybackRunning(&playback_running);
+    static bool _ran = false;
+    unsigned int buffered_frames = 0;
+
+    static BMDTimeValue tv = (buffered_frames * 1000), duration = 1000;
+    static BMDTimeScale scale = 50000;
+
+    if (!playback_running)
+    {
+        if (!_ran)
+        {
+            displayMode->GetFrameRate(&duration, &scale);
+            if (output->GetBufferedVideoFrameCount(&buffered_frames) == S_OK)
+            {
+                tv = (buffered_frames * 1000);
+            }
+
+            cb->setDuration(duration);
+            cb->setTimeScale(scale);
+            cb->setTimeValue(0);
+
+
+            this->output->SetScheduledFrameCompletionCallback(cb);
+            _ran = true;
+        }
+        else {
+
+            if (output->GetBufferedVideoFrameCount(&buffered_frames) == S_OK)
+            {
+                tv = (buffered_frames * duration);
+            }
+            this->output->ScheduleVideoFrame(frame, tv, duration, scale);
+        }
+
+        if (buffered_frames >= PREROLL)
+            this->output->StartScheduledPlayback(0, scale, 1.0);
+    }
+    else {
+
+        cb->addFrame(frame);
+    }
+}
+
+void DeckLinkOutputPort::DisplayFrame()
+{
+    this->output->DisplayVideoFrameSync(this->frame);
+}
+
+void DeckLinkOutputPort::subscribe_2_q(std::queue<IDeckLinkVideoFrame*>* q)
+{
+    if (q)
+        frames_q = q;
+}
 
 DeckLinkOutputPort::~DeckLinkOutputPort()
 {
-   // if (port)port->Release();
+    // if (port)port->Release();
+    BOOL pb_running;
+    BMDTimeValue actual_stop_time;
+    if (S_OK == output->IsScheduledPlaybackRunning(&pb_running))
+    {
+        if (pb_running)
+        {
+            output->StopScheduledPlayback(cb->getCurrentDisplayTime(), &actual_stop_time, cb->getTimeScale());
+        }
+    }
+
+
     if (output)output->Release();
     if (displayModeIterator)displayModeIterator->Release();
     if (profileAttributes)profileAttributes->Release();
@@ -712,10 +831,9 @@ DeckLinkOutputPort::~DeckLinkOutputPort()
         delete previewThread;
         preview = false;
     }
-
     this->stop(); // stop the rendering thread ...
-}
 
+}
 
 DeckLinkInputPort::DeckLinkInputPort(DeckLinkCard* card, IDeckLink* p) : IDeckLinkPort(card, p)
 {
@@ -750,7 +868,6 @@ DeckLinkInputPort::~DeckLinkInputPort()
     delete deckLinkCap;
 }
 
-
 void DeckLinkInputPort::RegisterVideoCallback(FrameArrivedCallback* _cb)
 {
     deckLinkCap->registerFrameArrivedCallback(_cb);
@@ -761,7 +878,7 @@ void DeckLinkInputPort::RegisterVideoCallback(FrameArrivedCallback* _cb)
 
 void DeckLinkInputPort::startCapture()
 {
-    assert(deckLinkCap->startCapture(displayModes[selectedMode]->GetDisplayMode(), nullptr, true));
+    deckLinkCap->startCapture(displayModes[selectedMode]->GetDisplayMode(), nullptr, true);
 }
 void DeckLinkInputPort::subscribe_2_input_q(std::queue<IDeckLinkVideoInputFrame*>* q)
 {
@@ -769,33 +886,23 @@ void DeckLinkInputPort::subscribe_2_input_q(std::queue<IDeckLinkVideoInputFrame*
     callback->subscribe_2_q(q);
 }
 
+void DeckLinkInputPort::subscribe_2_input_q(std::queue<IDeckLinkVideoFrame*>* q)
+{
+    assert(q);
+    callback->subscribe_2_q(q);
+}
 
 DeckLinkPlaybackCallback::DeckLinkPlaybackCallback(IDeckLinkOutput* dev)
     : m_port(dev),
-     count(0), scale(50000), f_duration(1000), frames_count(0), timeValue(0)
+    count(0),
+    scale(50000),
+    f_duration(1000),
+    frames_count(0),
+    timeValue(0)
 {}
-
 
 HRESULT DeckLinkPlaybackCallback::ScheduledFrameCompleted(IDeckLinkVideoFrame* completedFrame, BMDOutputFrameCompletionResult result)
 {
-    timeValue += f_duration;
-    BMDTimeValue frameCompletionTimestamp;
-
-    if (completedFrame)
-    {
-        if (m_port->GetFrameCompletionReferenceTimestamp(completedFrame, scale, &frameCompletionTimestamp) == S_OK)
-        {
-            //std::lock_guard<std::mutex> lock(m_mutex);
-        }
-        //std::cout << frames_q.size() << std::endl;
-    }
-
-    if (!frames_q.empty())
-    {
-        m_port->ScheduleVideoFrame(frames_q.front(), timeValue, f_duration, scale);
-        frames_q.pop();
-    }
-
     return S_OK;
 }
 
@@ -829,8 +936,11 @@ void DeckLinkPlaybackCallback::addFrame(IDeckLinkVideoFrame* frame)
             break;
         }
     }
-}
 
+    /* unsigned int b_count;
+      m_port->GetBufferedVideoFrameCount(&b_count);
+      std::cout << "Frames Q:" << b_count << std::endl;*/
+}
 
 HRESULT DeckLinkPlaybackCallback::ScheduledPlaybackHasStopped(void)
 {
@@ -846,7 +956,6 @@ HRESULT DeckLinkPlaybackCallback::ScheduledPlaybackHasStopped(void)
 
     return S_OK;
 }
-
 
 HRESULT DeckLinkPlaybackCallback::QueryInterface(REFIID iid, LPVOID* ppv)
 {
@@ -908,14 +1017,16 @@ VideoFrameCallback::VideoFrameCallback(int mFrameCount) :
     pxFormat(bmdFormatUnspecified),
     rgb_data(nullptr),
     rgb_data_h(nullptr),
-    frames_queue(nullptr)
+    frames_queue(nullptr),
+    frames_q(nullptr)
 {}
-
-
 // This is called on a seperate thread ...
-void VideoFrameCallback::arrived(IDeckLinkVideoInputFrame* frame) 
+void VideoFrameCallback::arrived(IDeckLinkVideoInputFrame* frame)
 {
     start_clock = std::chrono::high_resolution_clock::now();
+
+    // std::cout << "Frame Arrival Difference: " << (start_clock - stop_clock).count() / 1000000.0 << " ms" << std::endl;
+
     frame->AddRef();
     // interogate the frame to decide how to process it ...
     width = frame->GetWidth();
@@ -925,12 +1036,12 @@ void VideoFrameCallback::arrived(IDeckLinkVideoInputFrame* frame)
     {
     case bmdFormat10BitYUV:
     {
-        // from here we received the frame, now send it to the Interface_manager.
-        if(frames_queue)
-            frames_queue->push(frame); // pass it to the interface_manager
+        if (frame->GetRowBytes() * frame->GetHeight() < (1920 * 1080))
+            return;
 
-        //preview_10bit_yuv(frame);
-        // set this to preview on a seperate thread ... 
+        //std::cout << "Received Res: " << frame->GetWidth() << " x " << frame->GetHeight() << std::endl;
+        if (frames_q)
+            frames_q->push(frame); // generic frames q for Decklink Video Frames
         break;
     }
     case bmdFormat8BitYUV:
@@ -955,6 +1066,7 @@ void VideoFrameCallback::arrived(IDeckLinkVideoInputFrame* frame)
         break;
     }
     }
+    stop_clock = std::chrono::high_resolution_clock::now();
 }
 
 void VideoFrameCallback::clearAll()
@@ -966,6 +1078,11 @@ void VideoFrameCallback::clearAll()
 void VideoFrameCallback::subscribe_2_q(std::queue<IDeckLinkVideoInputFrame*>* q)
 {
     frames_queue = q;
+}
+
+void VideoFrameCallback::subscribe_2_q(std::queue<IDeckLinkVideoFrame*>* q)
+{
+    frames_q = q;
 }
 
 void VideoFrameCallback::preview_10bit_yuv(IDeckLinkVideoInputFrame* frame)
@@ -980,7 +1097,7 @@ void VideoFrameCallback::preview_10bit_yuv(IDeckLinkVideoInputFrame* frame)
 
         cudaMalloc((void**)&dst_4, frame->GetHeight() * (frame->GetWidth() / 2) * sizeof(uint4));
     }
-    
+
     if (S_OK == frame->GetBytes((void**)&buffer))
     {
         cudaError_t cudaStatus = cudaMemcpy(gpuMemory, buffer, frame->GetRowBytes() * frame->GetHeight(), cudaMemcpyHostToDevice);
@@ -1000,12 +1117,12 @@ void VideoFrameCallback::preview_10bit_yuv(IDeckLinkVideoInputFrame* frame)
     cv::imshow("Preview", preview);
     cv::waitKey(2);
 
-   /* cudaFree(gpuMemory);
-    cudaFree(rgb_data);
-    cudaFree(dst_4);
+    /* cudaFree(gpuMemory);
+     cudaFree(rgb_data);
+     cudaFree(dst_4);
 
-    cudaFreeHost(pinnedMemory);
-    cudaFreeHost(rgb_data_h);*/
+     cudaFreeHost(pinnedMemory);
+     cudaFreeHost(rgb_data_h);*/
 }
 
 IDeckLinkVideoInputFrame* VideoFrameCallback::getFrame()

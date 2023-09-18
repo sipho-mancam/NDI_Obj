@@ -122,107 +122,70 @@ Discovery::~Discovery()
     NDIlib_find_destroy(this->disc_instance);
 }
 
-
 void NDI_Recv::run()
 {
-   /* if (!frames)
-        frames = new std::queue<NDIlib_video_frame_v2_t*>();*/
+    /* if (!frames)
+         frames = new std::queue<NDIlib_video_frame_v2_t*>();*/
+    bool check_init = false;
+    std::chrono::steady_clock::time_point start, end;
 
     while (!(*exit) && running)
     {
-        // The descriptors
+
+
         NDIlib_video_frame_v2_t video_frame;
-        NDIlib_audio_frame_v2_t audio_frame;
-        NDIlib_metadata_frame_t metadata_frame;
-
-        switch (NDIlib_recv_capture_v2(rec_instance, &video_frame, NULL, &metadata_frame, timeout)) {
-            // No data
-        case NDIlib_frame_type_none:
-            break;
-            // Video data
-        case NDIlib_frame_type_video:
+        if (frames_synchronizer)
         {
-            if (fillAndKey && fillPort != nullptr && keyPort != nullptr)
-            {
-                uint4* yuvFill;
-                uchar* gBgra;
-                gBgra = get_yuv_from_bgr_packed(video_frame.xres, video_frame.yres, video_frame.p_data, &yuvFill);
+            start = std::chrono::high_resolution_clock::now();
+            //std::cout << "NDI Frame Arrival Difference: " << (start - end).count() / 1000000.0 << " ms" << std::endl;
 
-                uchar* alpha_channel;
-                get_alpha_channel_gpu(video_frame.xres, video_frame.yres, gBgra, &alpha_channel);
-
-                uint* key_packed;
-                alpha_2_decklink_gpu(video_frame.xres, video_frame.yres, alpha_channel, &key_packed);
-
-                fillPort->AddFrame(yuvFill, sizeof(uint4) * (video_frame.xres / 6) * (video_frame.yres)); // this is now a 10-bit video
-
-                keyPort->AddFrame(key_packed, sizeof(uint) * (video_frame.xres / 2) * (video_frame.yres));
-
-                cudaFreeHost(key_packed);
-                cudaFreeHost(yuvFill);
-
-                NDIlib_recv_free_video_v2(rec_instance, &video_frame);
+            NDIlib_framesync_capture_video(frames_synchronizer, &video_frame);
+            if (video_frame.xres == 0 || video_frame.p_data == nullptr)
                 continue;
-            }
-            if (persFrame->line_stride_in_bytes != video_frame.line_stride_in_bytes)
+
+            if (video_frame.FourCC == NDIlib_FourCC_type_BGRA)
             {
-                persFrame->xres = video_frame.xres;
-                persFrame->yres = video_frame.yres;
-                persFrame->data_size_in_bytes = video_frame.data_size_in_bytes;
-                persFrame->line_stride_in_bytes = video_frame.line_stride_in_bytes;
-                persFrame->FourCC = video_frame.FourCC;
-                persFrame->frame_format_type = video_frame.frame_format_type;
-                persFrame->timecode = video_frame.timecode;
-                persFrame->timestamp = video_frame.timestamp;
-                persFrame->p_metadata = video_frame.p_metadata;
-                persFrame->frame_rate_D = video_frame.frame_rate_D;
-                persFrame->frame_rate_N = video_frame.frame_rate_N;
-                persFrame->picture_aspect_ratio = video_frame.picture_aspect_ratio;
+                if (persFrame->line_stride_in_bytes != video_frame.line_stride_in_bytes)
+                {
+                    persFrame->xres = video_frame.xres;
+                    persFrame->yres = video_frame.yres;
+                    persFrame->data_size_in_bytes = video_frame.data_size_in_bytes;
+                    persFrame->line_stride_in_bytes = video_frame.line_stride_in_bytes;
+                    persFrame->FourCC = video_frame.FourCC;
+                    persFrame->frame_format_type = video_frame.frame_format_type;
+                    persFrame->timecode = video_frame.timecode;
+                    persFrame->timestamp = video_frame.timestamp;
+                    persFrame->p_metadata = video_frame.p_metadata;
+                    persFrame->frame_rate_D = video_frame.frame_rate_D;
+                    persFrame->frame_rate_N = video_frame.frame_rate_N;
+                    persFrame->picture_aspect_ratio = video_frame.picture_aspect_ratio;
 
-                if (persFrame->p_data)
-                    delete persFrame->p_data; 
-                persFrame->p_data = nullptr;
+                    if (persFrame->p_data)
+                        delete persFrame->p_data;
+                    persFrame->p_data = nullptr;
+                }
+
+                if (persFrame->p_data == nullptr)
+                    persFrame->p_data = (uint8_t*) new uint8_t[video_frame.line_stride_in_bytes * video_frame.yres];
+
+
+                memcpy(persFrame->p_data, video_frame.p_data, video_frame.line_stride_in_bytes * video_frame.yres);
+
+                if (frames)
+                    frames->push(persFrame);
             }
-            
 
-            if(persFrame->p_data == nullptr)
-                persFrame->p_data = (uint8_t*) new uint8_t[video_frame.line_stride_in_bytes * video_frame.yres];
+            int frame_rate = video_frame.frame_rate_N / video_frame.frame_rate_D;
+            int m_seconds = (1000 / frame_rate);
 
-            memcpy(persFrame->p_data, video_frame.p_data, video_frame.line_stride_in_bytes * video_frame.yres);
+            NDIlib_framesync_free_video(frames_synchronizer, &video_frame);
+            end = std::chrono::high_resolution_clock::now();
 
-            if(frames)
-                frames->push(persFrame);
-            // Double check that we are running sufficiently well
-            //NDIlib_recv_queue_t recv_queue;
-            //NDIlib_recv_get_queue(rec_instance, &recv_queue);
-            //if (recv_queue.video_frames > 2) {
-            //    // Display the frames per second
-            //    printf("Channel %d queue depth is %d.\n", channel, recv_queue.video_frames);
-            //}
-
-            NDIlib_recv_free_video_v2(rec_instance, &video_frame);
-
-            //std::this_thread::sleep_for(std::chrono::milliseconds(10));
-            
-            break;
+            std::this_thread::sleep_for(std::chrono::milliseconds(m_seconds * 2)); // wait for a duration of 2 frames before pulling a frame.
         }
 
-        // Meta data
-        case NDIlib_frame_type_metadata:
-            //printf("Length: %d\nMeta: %s \n", metadata_frame.length, metadata_frame.p_data);
-            NDIlib_recv_free_metadata(rec_instance, &metadata_frame);
-            break;
-            // There is a status change on the receiver (e.g. new web interface)
-        case NDIlib_frame_type_status_change:
-            printf("Receiver connection status changed.\n");
-            break;
-            // Everything else
-        default:
-            break;
-        }
     }
 }
-
 
 void NDI_Recv::splitKeyandFill(cv::Mat& src, cv::Mat& dstA, cv::Mat& dstB /*This must be the alpha channel*/)
 {
@@ -231,7 +194,6 @@ void NDI_Recv::splitKeyandFill(cv::Mat& src, cv::Mat& dstA, cv::Mat& dstB /*This
     int from_to[] = { 3,0 };
     cv::mixChannels(&src, 1, out, 1, from_to, 1);
 }
-
 
 NDI_Recv::NDI_Recv(bool* controller, uint32_t c, std::string s)
     : channel(c), source(s),
@@ -243,11 +205,11 @@ NDI_Recv::NDI_Recv(bool* controller, uint32_t c, std::string s)
     fillAndKey(false),
     running(false),
     fillPort(nullptr),
-    keyPort(nullptr), 
+    keyPort(nullptr),
     persFrame(nullptr)
 {
 
-    persFrame = new NDIlib_video_frame_v2_t(0,0);
+    persFrame = new NDIlib_video_frame_v2_t(0, 0);
     persFrame->p_data = nullptr;
     persFrame->xres = 0;
     persFrame->yres = 0;
@@ -268,15 +230,13 @@ NDI_Recv::NDI_Recv(bool* controller, uint32_t c, std::string s)
     {
         s_connect.p_ndi_name = source.c_str();
 
-        recv_desc.bandwidth = NDIlib_recv_bandwidth_highest;
+        //recv_desc.bandwidth = NDIlib_recv_bandwidth_highest;
         recv_desc.source_to_connect_to = s_connect; // this will allow the NDI endpoint connect to the specified string upon creation...
-        recv_desc.color_format = NDIlib_recv_color_format_best;
+        //recv_desc.color_format = NDIlib_recv_color_format_best;
 
         char buf[256] = { 0, };
         sprintf_s(buf, "Channel %u", channel);
         recv_desc.p_ndi_recv_name = buf;
-
-
 
         if (!rec_instance)
         {
@@ -285,6 +245,12 @@ NDI_Recv::NDI_Recv(bool* controller, uint32_t c, std::string s)
         connected = true;
     }
     rec_instance = NDIlib_recv_create_v3(&recv_desc);
+
+    if (rec_instance)
+    {
+        // if we have a receiver, we can create a frame synchronizer.
+        frames_synchronizer = NDIlib_framesync_create(rec_instance);
+    }
 }
 
 void NDI_Recv::disconnect()
@@ -297,8 +263,6 @@ void NDI_Recv::setKeyAndFillPorts(DeckLinkOutputPort* f, DeckLinkOutputPort* k)
 {
     this->keyPort = k;
     this->fillPort = f;
-
- 
 }
 
 void NDI_Recv::connect(std::string s)
