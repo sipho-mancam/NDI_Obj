@@ -42,6 +42,16 @@ int main()
     int disp_mode = 0; // change the mode to either HD or UHD mode (1 = UHD, 0 = HD)
     int console_key = 0, choice = 0;
 
+    std::cout << "Select Display Mode" << std::endl;
+    std::cout << "======================" << std::endl;
+    std::cout << "0. HD (1080i)\n1.UHD (2160p)" << std::endl;
+    std::cout << "Option: ";
+    std::cin >> disp_mode;
+
+    if (disp_mode != 1 && disp_mode != 0)
+        disp_mode = 0;
+
+
     system("cls");
     DeckLinkCard* card = new DeckLinkCard();
     DeckLinkOutputPort* fillPort = card->SelectOutputPort(3, disp_mode);
