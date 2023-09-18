@@ -11,12 +11,31 @@
 #include <unordered_map>
 #include <mutex>
 
-#include <DecklinkAPI_h.h>
+#include "DecklinkAPI_h.h"
 #include "platform.h"
 #include "DeckLinkDevice.h"
 
 #include "cuda_runtime_api.h"
 #include "device_launch_parameters.h"
+
+#define PREROLL 3
+#define HD_MODE 0
+#define UHD_MODE 1
+
+#define CHECK_CUDA_ERROR(status)  \
+		if(status != cudaSuccess) \
+		{ \
+			std::cerr << "[Error]: Cuda Error: " << cudaGetErrorString(status) <<" \n"<< __FILE__<< " : " << __LINE__ <<std::endl;	\
+			assert(status == cudaSuccess); \
+		} \
+
+
+#define CHECK_DECK_ERROR(result) \
+    if(result != S_OK) \
+    {\
+        std::cout<< "There's a decklink Error at: "<< __FILE__ << " : "<<__LINE__ <<std::endl; \
+        assert(result == S_OK); \
+    }\
 
 
 class DeckLinkCard;
@@ -158,10 +177,16 @@ class DeckLinkOutputPort : public IDeckLinkPort
 private:
     IDeckLinkOutput* output;
     IDeckLinkMutableVideoFrame* frame; // Mutable object ???
+    IDeckLinkMutableVideoFrame* srcFrame;
+    IDeckLinkVideoConversion* conversion;
     DeckLinkPlaybackCallback* cb;
     std::queue<IDeckLinkVideoFrame*>* frames_q;
     //BMDPixelFormat pixelFormat;
     std::thread* rendering_thread;
+
+    int width, height;
+    bool m_referenceLocked;
+    bool* _release_frames; // this is the flag used to synchronize between multiple outputs
     
     void run();
 
@@ -176,8 +201,28 @@ public:
     void AddFrame(void* frameBuffer, size_t size = 0);
     void DisplayFrame();
 
+    void setPixelFormat(BMDPixelFormat f) { pixelFormat = f; }
+    void playFrameBack(); // play back the frame asynchronously.
+
     void subscribe_2_q(std::queue<IDeckLinkVideoFrame*>* q); // this q gives us data to output ...
     void setPixelFormat(BMDPixelFormat f) { pixelFormat = f; }
+    void synchronize(bool* _sync_flag);
+
+    std::queue<IDeckLinkVideoFrame*>* get_output_q();
+
+    BMDTimeValue getCurrentPBTime();
+
+
+    bool waitForReference(); // waits for as long as the reference signal is not obtained.
+
+    // these are special methods for the Fill and Key.
+    IDeckLinkMutableVideoFrame* get_Fill_frame(int w, int h);
+    IDeckLinkMutableVideoFrame* get_Key_frame(int w, int h);
+    IDeckLinkMutableVideoFrame* get_mutable_frame(int w, int h);
+
+    int getModeIndex(int mode);
+    void auto_dectect_mode(IDeckLinkVideoFrame*); // this will look at our current video mode, and check the resolution of the input video.
+    bool resChanged(IDeckLinkVideoFrame*);
     
     void start();
     void stop();
@@ -221,6 +266,14 @@ public:
     HRESULT ScheduledFrameCompleted(IDeckLinkVideoFrame* completedFrame, BMDOutputFrameCompletionResult result) override;
     void addFrame(IDeckLinkVideoFrame* frame);
     HRESULT ScheduledPlaybackHasStopped(void) override;
+
+    BMDTimeValue getCurrentDisplayTime() { return timeValue; }
+    BMDTimeValue getFrameDuration() { return f_duration; }
+    BMDTimeScale getTimeScale() { return scale; }
+
+    void setDuration(BMDTimeValue d) { f_duration = d; }
+    void setTimeScale(BMDTimeScale s) { scale = s; }
+    void setTimeValue(BMDTimeValue t) { timeValue = t; }
 
     // IUnknown interface
     HRESULT QueryInterface(REFIID iid, LPVOID* ppv);

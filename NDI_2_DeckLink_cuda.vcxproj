@@ -95,6 +95,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;WIN64;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>C:\Users\Chroma2\source\repos\NDI_2_DeckLink_cuda\NDI_2_DeckLink_cuda;C:\Program Files\NDI\NDI 5 SDK\Include;C:\opencv\opencv\build\include;C:\Users\Chroma2\Downloads\Blackmagic DeckLink SDK 12.5.1\Win\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
