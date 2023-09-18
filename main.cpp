@@ -43,14 +43,15 @@ int main()
     Interface_Manager interface_manager;
     interface_manager.start_decklink();
     interface_manager.start_ndi();
+
     DeckLinkCard* card = new DeckLinkCard();
 
-    DeckLinkInputPort* inputPort = card->SelectInputPort(3);
+    DeckLinkInputPort* inputPort = card->SelectInputPort(0);
     assert(inputPort != nullptr);
     inputPort->subscribe_2_input_q(interface_manager.getDeckLinkInputQ());
     inputPort->startCapture();
 
-    CameraOutputPort* video_out = card->SelectCamOutputPort(2, 0);
+    CameraOutputPort* video_out = card->SelectCamOutputPort(3, 0);
     video_out->subscribe_2_q(interface_manager.getDeckLinkOutputQ());
     video_out->start();    
     

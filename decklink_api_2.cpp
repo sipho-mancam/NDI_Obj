@@ -598,7 +598,7 @@ void DeckLinkOutputPort::run()
                 }
 
                 //playFrameBack();
-                //frames_q->pop(); 
+                frames_q->pop(); 
             }
         }
     }
@@ -630,7 +630,7 @@ void CameraOutputPort::run()
         // if we are synchronized, wait for the flag .... or else ... just let it go.
         if ((_release_frames != nullptr && *_release_frames) || (!_release_frames))
         {
-            if (frames_q || !frames_q->empty())
+            if (frames_q && !frames_q->empty())
             {
                 IDeckLinkVideoFrame* vFrame = frames_q->front();
                 void* buffer = nullptr;
