@@ -958,7 +958,6 @@ void DeckLinkPlaybackCallback::addFrame(IDeckLinkVideoFrame* frame)
             break;
         }
     }
-
     /* unsigned int b_count;
       m_port->GetBufferedVideoFrameCount(&b_count);
       std::cout << "Frames Q:" << b_count << std::endl;*/

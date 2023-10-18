@@ -137,7 +137,7 @@ void NDI_Recv::run()
         if (frames_synchronizer)
         {
             start = std::chrono::high_resolution_clock::now();
-            //std::cout << "NDI Frame Arrival Difference: " << (start - end).count() / 1000000.0 << " ms" << std::endl;
+            std::cout << "NDI Frame Arrival Difference: " << (start - end).count() / 1000000.0 << " ms" << std::endl;
 
             NDIlib_framesync_capture_video(frames_synchronizer, &video_frame);
             if (video_frame.xres == 0 || video_frame.p_data == nullptr)
@@ -212,7 +212,7 @@ void NDI_Recv::run()
             NDIlib_framesync_free_video(frames_synchronizer, &video_frame);
             end = std::chrono::high_resolution_clock::now();
 
-            std::this_thread::sleep_for(std::chrono::milliseconds(m_seconds * 2)); // wait for a duration of 2 frames before pulling a frame.
+            std::this_thread::sleep_for(std::chrono::milliseconds(m_seconds-2)); // wait for a duration of 2 frames before pulling a frame.
         }
 
     }
