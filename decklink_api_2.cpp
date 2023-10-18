@@ -617,6 +617,17 @@ void CameraOutputPort::run()
         bmdFormat10BitYUV,
         bmdFrameFlagDefault,
         &frame);
+
+    IDeckLinkMutableVideoFrame* srcFrame;
+
+    result = output->CreateVideoFrame(
+        d_mode->GetWidth(),
+        d_mode->GetHeight(),
+        (d_mode->GetWidth() * 2),
+        bmdFormat8BitYUV,
+        bmdFrameFlagDefault,
+        &srcFrame
+    );
     
     BMDTimeValue frame_duration;
     BMDTimeScale d_scale;
@@ -633,13 +644,24 @@ void CameraOutputPort::run()
         {
             if (frames_q && !frames_q->empty())
             {
-                IDeckLinkVideoFrame* vFrame = frames_q->front();
+                IDeckLinkMutableVideoFrame* vFrame = (IDeckLinkMutableVideoFrame*) frames_q->front();
                 void* buffer = nullptr;
-                if (vFrame)vFrame->GetBytes(&buffer);
-                if (buffer)
+
+                if (!conversion)
+                {
+                    CHECK_DECK_ERROR(GetDeckLinkFrameConverter(&conversion));
+                    CHECK_DECK_ERROR(conversion->ConvertFrame(vFrame, frame));
+                }
+                else {
+                    CHECK_DECK_ERROR(conversion->ConvertFrame(vFrame, frame));
+                }
+
+
+                //if (vFrame)vFrame->GetBytes(&buffer);
+              /*  if (buffer)
                 {
                     this->add_to_q(buffer, false);
-                }
+                }*/
                 vFrame->Release();
             }
             vMtx.lock();

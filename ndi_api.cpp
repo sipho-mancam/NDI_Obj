@@ -176,7 +176,6 @@ void NDI_Recv::run()
                     frames->push(persFrame);
             }
             else {
-                std::cout << "NDI Frame: " << video_frame.line_stride_in_bytes << std::endl;
                 
                 if (persFrame->line_stride_in_bytes != video_frame.line_stride_in_bytes)
                 {
