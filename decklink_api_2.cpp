@@ -155,6 +155,7 @@ DeckLinkCard::DeckLinkCard()
     while (iterator->Next(&port) == S_OK)
     {
         unconfiguredPorts.push_back(port);
+
     }
     std::cout << "Decklink Device Initialized successfully ..." << std::endl;
 }
@@ -606,7 +607,7 @@ void DeckLinkOutputPort::run()
 
 void CameraOutputPort::run()
 {
-    waitForReference(); // this will wait for gen_lock, before starting the playback.
+    //waitForReference(); // this will wait for gen_lock, before starting the playback.
 
     IDeckLinkDisplayMode* d_mode = displayModes[selectedMode];
     result = output->CreateVideoFrame(
@@ -821,7 +822,6 @@ DeckLinkOutputPort::~DeckLinkOutputPort()
         }
     }
 
-
     if (output)output->Release();
     if (displayModeIterator)displayModeIterator->Release();
     if (profileAttributes)profileAttributes->Release();
@@ -1026,7 +1026,7 @@ void VideoFrameCallback::arrived(IDeckLinkVideoInputFrame* frame)
     start_clock = std::chrono::high_resolution_clock::now();
 
     // std::cout << "Frame Arrival Difference: " << (start_clock - stop_clock).count() / 1000000.0 << " ms" << std::endl;
-
+   
     frame->AddRef();
     // interogate the frame to decide how to process it ...
     width = frame->GetWidth();
@@ -1036,12 +1036,16 @@ void VideoFrameCallback::arrived(IDeckLinkVideoInputFrame* frame)
     {
     case bmdFormat10BitYUV:
     {
+        
         if (frame->GetRowBytes() * frame->GetHeight() < (1920 * 1080))
             return;
 
         //std::cout << "Received Res: " << frame->GetWidth() << " x " << frame->GetHeight() << std::endl;
         if (frames_q)
             frames_q->push(frame); // generic frames q for Decklink Video Frames
+
+        if (frames_queue)
+            frames_queue->push(frame);
         break;
     }
     case bmdFormat8BitYUV:

@@ -50,7 +50,7 @@ int main()
     assert(inputPort != nullptr);
     inputPort->subscribe_2_input_q(interface_manager.getDeckLinkInputQ());
     inputPort->startCapture();
-
+    
     CameraOutputPort* video_out = card->SelectCamOutputPort(3, 0);
     video_out->subscribe_2_q(interface_manager.getDeckLinkOutputQ());
     video_out->start();    
@@ -108,7 +108,6 @@ int main()
 
                 receiver->start();
                 std::cin.clear();
-
                 discovery->stop();
                 break;
             }
@@ -126,7 +125,7 @@ int main()
         }
     }
     delete discovery;
-    //delete video_out;
+    delete video_out;
     delete receiver;
     delete sender;
     delete card;
