@@ -145,6 +145,7 @@ void NDI_Recv::run()
 
             if (video_frame.FourCC == NDIlib_FourCC_type_BGRA)
             {
+                
                 if (persFrame->line_stride_in_bytes != video_frame.line_stride_in_bytes)
                 {
                     persFrame->xres = video_frame.xres;
@@ -168,6 +169,37 @@ void NDI_Recv::run()
                 if (persFrame->p_data == nullptr)
                     persFrame->p_data = (uint8_t*) new uint8_t[video_frame.line_stride_in_bytes * video_frame.yres];
 
+
+                memcpy(persFrame->p_data, video_frame.p_data, video_frame.line_stride_in_bytes * video_frame.yres);
+
+                if (frames)
+                    frames->push(persFrame);
+            }
+            else {
+                std::cout << "NDI Frame: " << video_frame.line_stride_in_bytes << std::endl;
+                
+                if (persFrame->line_stride_in_bytes != video_frame.line_stride_in_bytes)
+                {
+                    persFrame->xres = video_frame.xres;
+                    persFrame->yres = video_frame.yres;
+                    persFrame->data_size_in_bytes = video_frame.data_size_in_bytes;
+                    persFrame->line_stride_in_bytes = video_frame.line_stride_in_bytes;
+                    persFrame->FourCC = video_frame.FourCC;
+                    persFrame->frame_format_type = video_frame.frame_format_type;
+                    persFrame->timecode = video_frame.timecode;
+                    persFrame->timestamp = video_frame.timestamp;
+                    persFrame->p_metadata = video_frame.p_metadata;
+                    persFrame->frame_rate_D = video_frame.frame_rate_D;
+                    persFrame->frame_rate_N = video_frame.frame_rate_N;
+                    persFrame->picture_aspect_ratio = video_frame.picture_aspect_ratio;
+
+                    if (persFrame->p_data)
+                        delete persFrame->p_data;
+                    persFrame->p_data = nullptr;
+                }
+
+                if (persFrame->p_data == nullptr)
+                    persFrame->p_data = (uint8_t*) new uint8_t[video_frame.line_stride_in_bytes * video_frame.yres];
 
                 memcpy(persFrame->p_data, video_frame.p_data, video_frame.line_stride_in_bytes * video_frame.yres);
 
@@ -370,7 +402,6 @@ void NDI_Sender::run()
             NDIlib_send_send_video_v2(sender, &NDI_video_frame_16bit);
             frames_q->pop();
             //free(NDI_video_frame_16bit.p_data);
-
         }
         
     }

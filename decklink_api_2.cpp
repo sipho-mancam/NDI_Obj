@@ -566,7 +566,7 @@ BMDTimeValue DeckLinkOutputPort::getCurrentPBTime()
 void DeckLinkOutputPort::run()
 {
     waitForReference(); // this will wait for gen_lock, before starting the playback.
-
+    std::cout << "Decklink Frame: " << frame->GetRowBytes() << std::endl;
     while (running)
     {
         if (!m_referenceLocked)
@@ -613,11 +613,11 @@ void CameraOutputPort::run()
     result = output->CreateVideoFrame(
         d_mode->GetWidth(),
         d_mode->GetHeight(),
-        ((d_mode->GetWidth() + 47) / 48) * 128,
+        (((d_mode->GetWidth() + 47) / 48) * 128),
         bmdFormat10BitYUV,
         bmdFrameFlagDefault,
         &frame);
-
+    
     BMDTimeValue frame_duration;
     BMDTimeScale d_scale;
 
@@ -655,7 +655,7 @@ void CameraOutputPort::add_to_q(void* data, bool clear)
     vMtx.lock();
     void* buffer;
     frame->GetBytes(&buffer);
-
+   
     if (data)
         memcpy(buffer, data, frame->GetRowBytes() * frame->GetHeight());
 

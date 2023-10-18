@@ -68,7 +68,7 @@ IDeckLinkVideoFrame* Interface_Manager::convert_ndi_2_decklink_frame(NDIlib_vide
 {
     // Declare some decklink object and allocate it some memory .... copy video parameters and return it
     VideoFrameObj* outframe = nullptr;
-
+   
     switch (ndi_frame->FourCC)
     {
     case NDIlib_FourCC_type_BGRA: // 8bit BGRA data out..
