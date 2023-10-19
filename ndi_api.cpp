@@ -214,6 +214,52 @@ void NDI_Recv::run()
 
             std::this_thread::sleep_for(std::chrono::milliseconds(m_seconds-2)); // wait for a duration of 2 frames before pulling a frame.
         }
+        else {
+
+            switch (NDIlib_recv_capture_v2(rec_instance, &video_frame, NULL, NULL, timeout)) {
+                // No data
+            case NDIlib_frame_type_none:
+                break;
+                // Video data
+            case NDIlib_frame_type_video:
+            {
+                
+                if (persFrame->line_stride_in_bytes != video_frame.line_stride_in_bytes)
+                {
+                    persFrame->xres = video_frame.xres;
+                    persFrame->yres = video_frame.yres;
+                    persFrame->data_size_in_bytes = video_frame.data_size_in_bytes;
+                    persFrame->line_stride_in_bytes = video_frame.line_stride_in_bytes;
+                    persFrame->FourCC = video_frame.FourCC;
+                    persFrame->frame_format_type = video_frame.frame_format_type;
+                    persFrame->timecode = video_frame.timecode;
+                    persFrame->timestamp = video_frame.timestamp;
+                    persFrame->p_metadata = video_frame.p_metadata;
+                    persFrame->frame_rate_D = video_frame.frame_rate_D;
+                    persFrame->frame_rate_N = video_frame.frame_rate_N;
+                    persFrame->picture_aspect_ratio = video_frame.picture_aspect_ratio;
+
+                    if (persFrame->p_data)
+                        delete persFrame->p_data;
+                    persFrame->p_data = nullptr;
+                }
+
+
+                if (persFrame->p_data == nullptr)
+                    persFrame->p_data = (uint8_t*) new uint8_t[video_frame.line_stride_in_bytes * video_frame.yres];
+
+                memcpy(persFrame->p_data, video_frame.p_data, video_frame.line_stride_in_bytes * video_frame.yres);
+
+                if (frames)
+                    frames->push(persFrame);
+                NDIlib_recv_free_video_v2(rec_instance, &video_frame);
+                break;
+            }
+            }
+
+
+
+        }
 
     }
 }
@@ -237,7 +283,8 @@ NDI_Recv::NDI_Recv(bool* controller, uint32_t c, std::string s)
     running(false),
     fillPort(nullptr),
     keyPort(nullptr),
-    persFrame(nullptr)
+    persFrame(nullptr),
+    frames_synchronizer(nullptr)
 {
 
     persFrame = new NDIlib_video_frame_v2_t(0, 0);
@@ -277,11 +324,11 @@ NDI_Recv::NDI_Recv(bool* controller, uint32_t c, std::string s)
     }
     rec_instance = NDIlib_recv_create_v3(&recv_desc);
 
-    if (rec_instance)
-    {
-        // if we have a receiver, we can create a frame synchronizer.
-        frames_synchronizer = NDIlib_framesync_create(rec_instance);
-    }
+    //if (rec_instance)
+    //{
+    //    // if we have a receiver, we can create a frame synchronizer.
+    //    frames_synchronizer = NDIlib_framesync_create(rec_instance);
+    //}
 }
 
 void NDI_Recv::disconnect()

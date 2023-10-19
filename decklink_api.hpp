@@ -72,7 +72,7 @@ public:
     ULONG Release() override;
     void SetPixelFormat(BMDPixelFormat pxF);
     void _testImageColorOut(); // sets the image white  ;
-    void SetFrameData(const void* fData, size_t s = 0);
+    void SetFrameData(void* fData, size_t s = 0);
     VideoFrameObj(long w, long h, BMDPixelFormat pxFormat, BMDFrameFlags flgs = bmdFrameFlagDefault, void* d = nullptr);
     ~VideoFrameObj();
 };

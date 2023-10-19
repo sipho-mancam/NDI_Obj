@@ -107,15 +107,17 @@ void VideoFrameObj::SetRowBytes(long bytes)
     data = (void*)malloc(rowBytes * height);
 }
 
-void VideoFrameObj::SetFrameData(const void* fData, size_t s)
+void VideoFrameObj::SetFrameData(void* fData, size_t s)
 {
     if (s == 0 || s > static_cast<size_t>(this->rowBytes) * this->height)
     {
-        memcpy(this->data, fData, (static_cast<size_t>(this->rowBytes) * this->height));
+        this->data = fData;
+        //memcpy(this->data, fData, (static_cast<size_t>(this->rowBytes) * this->height));
         return;
     }
 
-    memcpy(this->data, fData, s);
+    this->data = fData;
+    //memcpy(this->data, fData, s);
 }
 
 VideoFrameObj::VideoFrameObj(long w, long h, BMDPixelFormat pxFormat, BMDFrameFlags flgs, void* d)
@@ -833,6 +835,7 @@ void DeckLinkOutputPort::subscribe_2_q(std::queue<IDeckLinkVideoFrame*>* q)
 
 DeckLinkOutputPort::~DeckLinkOutputPort()
 {
+    this->stop(); // stop the rendering thread ...
     // if (port)port->Release();
     BOOL pb_running;
     BMDTimeValue actual_stop_time;
@@ -844,7 +847,7 @@ DeckLinkOutputPort::~DeckLinkOutputPort()
         }
     }
 
-    if (output)output->Release();
+    
     if (displayModeIterator)displayModeIterator->Release();
     if (profileAttributes)profileAttributes->Release();
     if (preview && previewThread != nullptr)
@@ -853,7 +856,8 @@ DeckLinkOutputPort::~DeckLinkOutputPort()
         delete previewThread;
         preview = false;
     }
-    this->stop(); // stop the rendering thread ...
+    if (output)output->Release();
+    
 
 }
 
@@ -958,9 +962,9 @@ void DeckLinkPlaybackCallback::addFrame(IDeckLinkVideoFrame* frame)
             break;
         }
     }
-    /* unsigned int b_count;
-      m_port->GetBufferedVideoFrameCount(&b_count);
-      std::cout << "Frames Q:" << b_count << std::endl;*/
+     //unsigned int b_count;
+     //m_port->GetBufferedVideoFrameCount(&b_count);
+     //std::cout << "Frames Q:" << b_count << std::endl;
 }
 
 HRESULT DeckLinkPlaybackCallback::ScheduledPlaybackHasStopped(void)
