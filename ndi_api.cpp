@@ -137,7 +137,8 @@ void NDI_Recv::run()
         if (frames_synchronizer)
         {
             start = std::chrono::high_resolution_clock::now();
-            std::cout << "NDI Frame Arrival Difference: " << (start - end).count() / 1000000.0 << " ms" << std::endl;
+            //if ((start - end).count() / 1000000 > 40)
+            //std::cout << "NDI Frame Arrival Difference: " << (start - end).count() / 1000000.0 << " ms" << std::endl;
 
             NDIlib_framesync_capture_video(frames_synchronizer, &video_frame);
             if (video_frame.xres == 0 || video_frame.p_data == nullptr)
@@ -211,11 +212,10 @@ void NDI_Recv::run()
 
             NDIlib_framesync_free_video(frames_synchronizer, &video_frame);
             end = std::chrono::high_resolution_clock::now();
-
             std::this_thread::sleep_for(std::chrono::milliseconds(m_seconds-2)); // wait for a duration of 2 frames before pulling a frame.
         }
         else {
-
+           
             switch (NDIlib_recv_capture_v2(rec_instance, &video_frame, NULL, NULL, timeout)) {
                 // No data
             case NDIlib_frame_type_none:
@@ -223,7 +223,6 @@ void NDI_Recv::run()
                 // Video data
             case NDIlib_frame_type_video:
             {
-                
                 if (persFrame->line_stride_in_bytes != video_frame.line_stride_in_bytes)
                 {
                     persFrame->xres = video_frame.xres;
@@ -253,6 +252,8 @@ void NDI_Recv::run()
                 if (frames)
                     frames->push(persFrame);
                 NDIlib_recv_free_video_v2(rec_instance, &video_frame);
+
+                
                 break;
             }
             }
@@ -324,11 +325,11 @@ NDI_Recv::NDI_Recv(bool* controller, uint32_t c, std::string s)
     }
     rec_instance = NDIlib_recv_create_v3(&recv_desc);
 
-    //if (rec_instance)
-    //{
-    //    // if we have a receiver, we can create a frame synchronizer.
-    //    frames_synchronizer = NDIlib_framesync_create(rec_instance);
-    //}
+    if (rec_instance)
+    {
+        // if we have a receiver, we can create a frame synchronizer.
+        frames_synchronizer = NDIlib_framesync_create(rec_instance);
+    }
 }
 
 void NDI_Recv::disconnect()

@@ -33,7 +33,7 @@
     }\
 
 
-#define PREROLL 3
+#define PREROLL 5
 #define HD_MODE 0
 #define UHD_MODE 1
 

@@ -329,7 +329,9 @@ DeckLinkOutputPort::DeckLinkOutputPort(DeckLinkCard* par, IDeckLink* por, int mo
     conversion(nullptr),
     _release_frames(nullptr),
     m_referenceLocked(false),
-    selectedDMode(nullptr)
+    selectedDMode(nullptr),
+    height(0),
+    width(0)
 {
     // mode = 0 (HD) ... mode = 1 (UHD 4K)
     result = port->QueryInterface(IID_IDeckLinkOutput, (void**)&this->output);
@@ -609,27 +611,17 @@ void DeckLinkOutputPort::run()
 
 void CameraOutputPort::run()
 {
-    //waitForReference(); // this will wait for gen_lock, before starting the playback.
+    waitForReference(); // this will wait for gen_lock, before starting the playback.
 
     IDeckLinkDisplayMode* d_mode = displayModes[selectedMode];
     result = output->CreateVideoFrame(
         d_mode->GetWidth(),
         d_mode->GetHeight(),
-        (((d_mode->GetWidth() + 47) / 48) * 128),
-        bmdFormat10BitYUV,
-        bmdFrameFlagDefault,
-        &frame);
-
-    IDeckLinkMutableVideoFrame* srcFrame;
-
-    result = output->CreateVideoFrame(
-        d_mode->GetWidth(),
-        d_mode->GetHeight(),
         (d_mode->GetWidth() * 2),
+        //(((d_mode->GetWidth() + 47) / 48) * 128),
         bmdFormat8BitYUV,
         bmdFrameFlagDefault,
-        &srcFrame
-    );
+        &frame);
     
     BMDTimeValue frame_duration;
     BMDTimeScale d_scale;
@@ -638,6 +630,8 @@ void CameraOutputPort::run()
 
     int frame_rate = d_scale / frame_duration;
     int m_seconds = (1000 / frame_rate);
+    std::queue<IDeckLinkMutableVideoFrame*> frames_buffer;
+    int buffer_count = 1000;
 
     while (running)
     {
@@ -647,8 +641,7 @@ void CameraOutputPort::run()
             if (frames_q && !frames_q->empty())
             {
                 IDeckLinkMutableVideoFrame* vFrame = (IDeckLinkMutableVideoFrame*) frames_q->front();
-                void* buffer = nullptr;
-
+              
                 if (!conversion)
                 {
                     CHECK_DECK_ERROR(GetDeckLinkFrameConverter(&conversion));
@@ -657,18 +650,25 @@ void CameraOutputPort::run()
                 else {
                     CHECK_DECK_ERROR(conversion->ConvertFrame(vFrame, frame));
                 }
-
-
-                //if (vFrame)vFrame->GetBytes(&buffer);
-              /*  if (buffer)
+              
+                //frames_buffer.push(srcFrame);
+                /*void* buffer = NULL;
+                if (vFrame)vFrame->GetBytes(&buffer);
+                if (buffer)
                 {
                     this->add_to_q(buffer, false);
                 }*/
                 vFrame->Release();
             }
-            vMtx.lock();
-            playFrameBack();
-            vMtx.unlock();
+
+            //if (frames_buffer.size() == buffer_count)
+            {
+                //std::cout << tempFrame << std::endl;
+                vMtx.lock();
+                playFrameBack();
+                vMtx.unlock();
+            }
+            
             std::this_thread::sleep_for(std::chrono::milliseconds(m_seconds)); // need to implement hardware reference clock here...
         }
     }
@@ -679,7 +679,7 @@ void CameraOutputPort::add_to_q(void* data, bool clear)
     vMtx.lock();
     void* buffer;
     frame->GetBytes(&buffer);
-   
+  
     if (data)
         memcpy(buffer, data, frame->GetRowBytes() * frame->GetHeight());
 

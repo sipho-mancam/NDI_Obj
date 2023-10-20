@@ -13,6 +13,7 @@
   <ItemGroup>
     <ClInclude Include="common.hpp" />
     <ClInclude Include="decklinkAPI.hpp" />
+    <ClInclude Include="DeckLinkAPI_h.h" />
     <ClInclude Include="DeckLinkDevice.h" />
     <ClInclude Include="decklink_api.hpp" />
     <ClInclude Include="decklink_kernels.cuh" />

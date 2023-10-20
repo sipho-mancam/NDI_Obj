@@ -108,9 +108,9 @@ NDIlib_video_frame_v2_t Interface_Manager::convert_decklink_2_ndi_frame(IDeckLin
             NDI_video_frame_10bit.yres = frame->GetHeight();
             NDI_video_frame_10bit.FourCC = (NDIlib_FourCC_video_type_e)NDI_LIB_FOURCC('V', '2', '1', '0');
             NDI_video_frame_10bit.line_stride_in_bytes = frame->GetRowBytes();
-            NDI_video_frame_10bit.frame_rate_N = 50000;
+            NDI_video_frame_10bit.frame_rate_N = frame->GetWidth() == 3840 ? 50000: 25000;
             NDI_video_frame_10bit.frame_rate_D = 1000;
-            NDI_video_frame_10bit.frame_format_type = NDIlib_frame_format_type_progressive;
+            NDI_video_frame_10bit.frame_format_type = frame->GetWidth() == 1920 ?NDIlib_frame_format_type_interleaved : NDIlib_frame_format_type_progressive;
             NDI_video_frame_10bit.picture_aspect_ratio = 16.0f / 9.0f;
             NDI_video_frame_10bit.timecode = NDIlib_send_timecode_synthesize;
             uchar* buf;
@@ -127,7 +127,6 @@ NDIlib_video_frame_v2_t Interface_Manager::convert_decklink_2_ndi_frame(IDeckLin
             NDI_video_frame_16bit.line_stride_in_bytes = NDI_video_frame_16bit.xres * sizeof(uint16_t);
             if(!NDI_video_frame_16bit.p_data)
                 NDI_video_frame_16bit.p_data = (uint8_t*)malloc(NDI_video_frame_16bit.line_stride_in_bytes * 2 * NDI_video_frame_16bit.yres);
-
             // Convert into the destination
             NDIlib_util_V210_to_P216(&NDI_video_frame_10bit, &NDI_video_frame_16bit);
             break;
@@ -218,7 +217,7 @@ Interface_Manager::~Interface_Manager()
 }
 
 Interface_Manager::Interface_Manager(bool start_a)
-    : store_count(10), 
+    : store_count(2), 
     decklink_processer_worker(nullptr), 
     ndi_processor_worker(nullptr),
     exit_flag(false), frame(nullptr)

@@ -16,6 +16,8 @@ private:
     std::queue<NDIlib_video_frame_v2_t*> ndi_in_q;
     std::queue<NDIlib_video_frame_v2_t> ndi_out_q;
 
+    std::queue<IDeckLinkVideoFrame*> frames_buffer;
+
     std::thread* ndi_processor_worker;
     std::thread* decklink_processer_worker;
     

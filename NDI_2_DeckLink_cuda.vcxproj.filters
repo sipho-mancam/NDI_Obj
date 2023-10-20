@@ -93,6 +93,9 @@
     <ClInclude Include="ndi_api.hpp">
       <Filter>NDI</Filter>
     </ClInclude>
+    <ClInclude Include="DeckLinkAPI_h.h">
+      <Filter>HeaderFiles</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="decklink_kernels.cu">
