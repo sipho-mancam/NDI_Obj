@@ -39,6 +39,7 @@
 */
 
 #include <stdexcept>
+#include <iostream>
 
 #include "DeckLinkOutputDevice.h"
 #include "ReferenceTime.h"
@@ -112,7 +113,19 @@ ULONG DeckLinkOutputDevice::Release(void)
 HRESULT	DeckLinkOutputDevice::ScheduledFrameCompleted(IDeckLinkVideoFrame* completedFrame, BMDOutputFrameCompletionResult result)
 {
 	BMDTimeValue frameCompletionTimestamp;
-	
+
+	switch (result)
+	{
+	case bmdOutputFrameCompleted:
+		//std::cout << "Frame completed" << std::endl;
+		break;
+	case bmdOutputFrameDropped:
+		std::cout << "Frame Dropped" << std::endl;
+		break;
+	case bmdOutputFrameDisplayedLate:
+		std::cout << "Frame Displayed Late" << std::endl;
+		break;
+	}
 	// Get frame completion timestamp
 	if (completedFrame)
 	{
@@ -170,7 +183,7 @@ bool DeckLinkOutputDevice::startPlayback(BMDDisplayMode displayMode, bool enable
 	com_ptr<IDeckLinkDisplayMode>	deckLinkDisplayMode;
 	dlbool_t						displayModeSupported;
 	BMDSupportedVideoModeFlags		supportedVideoModeFlags = enable3D ? bmdSupportedVideoModeDualStream3D : bmdSupportedVideoModeDefault;
-
+	
 	m_seenFirstVideoFrame = false;
 	m_startPlaybackTime = 0;
 
@@ -195,14 +208,9 @@ bool DeckLinkOutputDevice::startPlayback(BMDDisplayMode displayMode, bool enable
 	// Reference DeckLinkOutputDevice delegate callbacks
 	if (m_deckLinkOutput->SetScheduledFrameCompletionCallback(this) != S_OK)
 		return false;
-	
-	if (m_deckLinkOutput->SetAudioCallback(this) != S_OK)
-		return false;
+
 	
 	if (m_deckLinkOutput->EnableVideoOutput(displayMode, outputFlags) != S_OK)
-		return false;
-
-	if (m_deckLinkOutput->EnableAudioOutput(bmdAudioSampleRate48kHz, audioSampleType, audioChannelCount, bmdAudioOutputStreamTimestamped) != S_OK)
 		return false;
 
 	if (requireReferenceLocked)
@@ -210,9 +218,6 @@ bool DeckLinkOutputDevice::startPlayback(BMDDisplayMode displayMode, bool enable
 		if (!waitForReferenceSignalToLock())
 			return false;
 	}
-
-	if (m_deckLinkOutput->BeginAudioPreroll() != S_OK)
-		return false;
 
 	m_outputVideoFrameQueue.reset();
 	
@@ -327,12 +332,12 @@ void DeckLinkOutputDevice::scheduleVideoFramesThread()
 {
 	while (true)
 	{
+		//std::cout << "Frame Scheduled" << std::endl;
 		std::shared_ptr<LoopThroughVideoFrame> outputFrame;
 	
 		if (m_outputVideoFrameQueue.waitForSample(outputFrame))
 		{
 			std::lock_guard<std::mutex> lock(m_mutex);
-
 			// Record the stream time of the first frame, so we can start playing from that point
 			if (!m_seenFirstVideoFrame)
 			{
@@ -343,15 +348,14 @@ void DeckLinkOutputDevice::scheduleVideoFramesThread()
 			
 			// Get the reference time when video frame was scheduled
 			outputFrame->setOutputFrameScheduledReferenceTime(ReferenceTime::getSteadyClockUptimeCount());
-
-			if (m_deckLinkOutput->ScheduleVideoFrame(outputFrame->getVideoFramePtr(), outputFrame->getVideoStreamTime(), m_frameDuration, m_frameTimescale) != S_OK)
+			HRESULT res = m_deckLinkOutput->ScheduleVideoFrame(outputFrame->getVideoFramePtr(), outputFrame->getVideoStreamTime(), m_frameDuration, m_frameTimescale);
+			if (res != S_OK)
 			{
 				fprintf(stderr, "Unable to schedule output video frame\n");
 				break;
 			}
-			
-			m_scheduledFramesList.push_back(outputFrame);
-
+			/*outputFrame->getVideoFramePtr()->Release();*/
+			m_scheduledFramesList.push_back(outputFrame);			
 			checkEndOfPreroll();
 		}
 		else
@@ -386,16 +390,8 @@ void DeckLinkOutputDevice::checkEndOfPreroll()
 	// Ensure that both audio and video preroll have sufficient samples, then commence scheduled playback
 	if (m_state == PlaybackState::Prerolling)
 	{
-		// If prerolling, check whether sufficent audio and video samples have been scheduled
-		if (m_deckLinkOutput->GetBufferedAudioSampleFrameCount(&prerollAudioSampleCount) != S_OK)
-		{
-			fprintf(stderr, "Unable to get audio sample count\n");
-			return;
-		}
-
 		if ((m_scheduledFramesList.size() >= m_videoPrerollSize))
 		{
-			m_deckLinkOutput->EndAudioPreroll();
 			if (m_deckLinkOutput->StartScheduledPlayback(m_startPlaybackTime, m_frameTimescale, 1.0) != S_OK)
 			{
 				fprintf(stderr, "Unable to start scheduled playback\n");

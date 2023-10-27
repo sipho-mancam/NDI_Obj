@@ -75,6 +75,8 @@ public:
 	BMDTimeValue					getProcessingLatency(void) const { return m_outputFrameScheduledReferenceTime - m_inputFrameArrivedReferenceTime; }
 	BMDTimeValue					getOutputLatency(void) const { return m_outputFrameCompletedReferenceTime - m_outputFrameScheduledReferenceTime; }
 	BMDOutputFrameCompletionResult	getOutputCompletionResult(void) const { return m_outputFrameCompletionResult; }
+
+	void clearFrame() { m_videoFrame.get()->Release(); }
 	
 private:
 	com_ptr<IDeckLinkVideoFrame>	m_videoFrame;

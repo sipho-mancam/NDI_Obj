@@ -55,8 +55,6 @@ int main()
     inputPort->startCapture();
     
     CameraOutputPort* video_out = card->SelectCamOutputPort(2, 0);
-    /*video_out->subscribe_2_q(interface_manager.getDeckLinkOutputQ());
-    video_out->start();*/
     outDevice = video_out->getOutputDevice();
     
     NDI_Sender* sender = new NDI_Sender(&exit_flag, "");
@@ -67,11 +65,23 @@ int main()
     receiver->subscribe_to_q(interface_manager.getNDIInputQ());
     auto start = std::chrono::high_resolution_clock::now();
 
-    std::thread outputRender(&InputLoopThrough, receiver);
+    TCHAR compName[MAX_COMPUTERNAME_LENGTH + 3];
+    DWORD size = MAX_COMPUTERNAME_LENGTH + 3;
+
+    GetComputerName(compName, &size);
+    std::string connection_string(compName);
+    connection_string += " (VizEngine-0)";
+
+    receiver->connect(connection_string);
+    receiver->start();
+
+    InputLoopThrough(receiver);
+    //std::thread outputRender(&InputLoopThrough, receiver);
 
     Discovery* discovery = new Discovery(&exit_flag);
     discovery->start();
     discovery->showMeList();
+    discovery->stop();
 
     int console_key = 0, choice = 0;
 
@@ -146,18 +156,26 @@ IDeckLinkVideoFrame* Interface_Manager::convert_ndi_2_decklink_frame_s(NDIlib_vi
 {
     // Declare some decklink object and allocate it some memory .... copy video parameters and return it
     IDeckLinkMutableVideoFrame* frame = nullptr, * outframe = nullptr;
-    static IDeckLinkVideoConversion* converter = nullptr;
-    com_ptr<IDeckLinkMutableVideoFrame> frame_8, frame_10;
+    IDeckLinkVideoConversion* converter = nullptr;
+    static IDeckLinkMutableVideoFrame* frame_8 = nullptr, *frame_10=nullptr;
 
     extern IDeckLinkOutput* outDevice;
+
     if (outDevice) {
-        CHECK_DECK_ERROR(outDevice->CreateVideoFrame(
-            ndi_frame->xres,
-            ndi_frame->yres,
-            (((ndi_frame->xres + 47) / 48) * 128),
-            bmdFormat10BitYUV,
-            bmdFrameFlagDefault, frame_10.releaseAndGetAddressOf()));
+        if (frame_10 == nullptr)
+        {
+            CHECK_DECK_ERROR(outDevice->CreateVideoFrame(
+                ndi_frame->xres,
+                ndi_frame->yres,
+                (((ndi_frame->xres + 47) / 48) * 128),
+                bmdFormat10BitYUV,
+                bmdFrameFlagDefault, &frame_10));
+        }
+        
     }
+
+    void* buffer = nullptr;
+
 
     CHECK_DECK_ERROR(GetDeckLinkFrameConverter(&converter));
 
@@ -168,26 +186,24 @@ IDeckLinkVideoFrame* Interface_Manager::convert_ndi_2_decklink_frame_s(NDIlib_vi
 
         if (outDevice)
         {
+            if(frame_8 == nullptr)
             CHECK_DECK_ERROR(outDevice->CreateVideoFrame(
                 ndi_frame->xres,
                 ndi_frame->yres,
                 ndi_frame->line_stride_in_bytes,
                 bmdFormat8BitBGRA,
-                bmdFrameFlagDefault, frame_8.releaseAndGetAddressOf()));
-
-            CHECK_DECK_ERROR(outDevice->CreateVideoFrame(
-                ndi_frame->xres,
-                ndi_frame->yres,
-                (((ndi_frame->xres + 47) / 48) * 128),
-                bmdFormat10BitYUV,
-                bmdFrameFlagDefault, frame_10.releaseAndGetAddressOf()));
+                bmdFrameFlagDefault, &frame_8));
+        }
+        if (frame_8) {
+            frame_8->GetBytes(&buffer);
+            memcpy(buffer, ndi_frame->p_data, ndi_frame->yres * ndi_frame->line_stride_in_bytes);
         }
 
         if (converter)
         {
-            converter->ConvertFrame(frame_8.get(), frame_10.get());
+            converter->ConvertFrame(frame_8, frame_10);
         }
-        outframe = frame_10.get();
+        outframe = frame_10;
         break;
     }
 
@@ -195,24 +211,29 @@ IDeckLinkVideoFrame* Interface_Manager::convert_ndi_2_decklink_frame_s(NDIlib_vi
     {
         if (outDevice)
         {
+            if(frame_8 ==nullptr)
             CHECK_DECK_ERROR(outDevice->CreateVideoFrame(
                 ndi_frame->xres,
                 ndi_frame->yres,
                 ndi_frame->line_stride_in_bytes,
                 bmdFormat8BitYUV,
-                bmdFrameFlagDefault, frame_8.releaseAndGetAddressOf()));
+                bmdFrameFlagDefault, &frame_8));
+        }
+
+        if (frame_8) {
+            frame_8->GetBytes(&buffer);
+            memcpy(buffer, ndi_frame->p_data, ndi_frame->yres * ndi_frame->line_stride_in_bytes);
         }
 
         if (converter)
         {
-            converter->ConvertFrame(frame_8.get(), frame_10.get());
+            converter->ConvertFrame(frame_8, frame_10);
         }
-
-        outframe = frame_10.get();
+        outframe = frame_10;
         break;
     }
     }
-    outframe->AddRef();
+    //outframe->AddRef();
     return outframe;
 }
 

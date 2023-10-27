@@ -148,92 +148,22 @@ void NDI_Recv::run()
 
             IDeckLinkVideoFrame* videoFrame = Interface_Manager::convert_ndi_2_decklink_frame_s(&video_frame);
 
-            std::cout <<"Frame Created: " << videoFrame << std::endl;
-
             if (videoFrame)
             {
                 auto loopThroughVideoFrame = std::make_shared<LoopThroughVideoFrame>(com_ptr<IDeckLinkVideoFrame>(videoFrame));
-                loopThroughVideoFrame->setInputFrameArrivedReferenceTime(0);
-              
+                loopThroughVideoFrame->setInputFrameArrivedReferenceTime(stream_time);
                 loopThroughVideoFrame->setVideoStreamTime(stream_time);
                 loopThroughVideoFrame->setVideoFrameDuration(frameDuration);
                 videoArrivedCallback(std::move(loopThroughVideoFrame));
                 
             }
-
             stream_time += frameDuration;
-            
-            NDIlib_framesync_free_video(frames_synchronizer, &video_frame);
-
-           /* if (video_frame.FourCC == NDIlib_FourCC_type_BGRA)
-            {
-                
-                if (persFrame->line_stride_in_bytes != video_frame.line_stride_in_bytes)
-                {
-                    persFrame->xres = video_frame.xres;
-                    persFrame->yres = video_frame.yres;
-                    persFrame->data_size_in_bytes = video_frame.data_size_in_bytes;
-                    persFrame->line_stride_in_bytes = video_frame.line_stride_in_bytes;
-                    persFrame->FourCC = video_frame.FourCC;
-                    persFrame->frame_format_type = video_frame.frame_format_type;
-                    persFrame->timecode = video_frame.timecode;
-                    persFrame->timestamp = video_frame.timestamp;
-                    persFrame->p_metadata = video_frame.p_metadata;
-                    persFrame->frame_rate_D = video_frame.frame_rate_D;
-                    persFrame->frame_rate_N = video_frame.frame_rate_N;
-                    persFrame->picture_aspect_ratio = video_frame.picture_aspect_ratio;
-
-                    if (persFrame->p_data)
-                        delete persFrame->p_data;
-                    persFrame->p_data = nullptr;
-                }
-
-                if (persFrame->p_data == nullptr)
-                    persFrame->p_data = (uint8_t*) new uint8_t[video_frame.line_stride_in_bytes * video_frame.yres];
-
-
-                memcpy(persFrame->p_data, video_frame.p_data, video_frame.line_stride_in_bytes * video_frame.yres);
-
-                if (frames)
-                    frames->push(persFrame);
-            }
-            else {
-                
-                if (persFrame->line_stride_in_bytes != video_frame.line_stride_in_bytes)
-                {
-                    persFrame->xres = video_frame.xres;
-                    persFrame->yres = video_frame.yres;
-                    persFrame->data_size_in_bytes = video_frame.data_size_in_bytes;
-                    persFrame->line_stride_in_bytes = video_frame.line_stride_in_bytes;
-                    persFrame->FourCC = video_frame.FourCC;
-                    persFrame->frame_format_type = video_frame.frame_format_type;
-                    persFrame->timecode = video_frame.timecode;
-                    persFrame->timestamp = video_frame.timestamp;
-                    persFrame->p_metadata = video_frame.p_metadata;
-                    persFrame->frame_rate_D = video_frame.frame_rate_D;
-                    persFrame->frame_rate_N = video_frame.frame_rate_N;
-                    persFrame->picture_aspect_ratio = video_frame.picture_aspect_ratio;
-
-                    if (persFrame->p_data)
-                        delete persFrame->p_data;
-                    persFrame->p_data = nullptr;
-                }
-
-                if (persFrame->p_data == nullptr)
-                    persFrame->p_data = (uint8_t*) new uint8_t[video_frame.line_stride_in_bytes * video_frame.yres];
-
-                memcpy(persFrame->p_data, video_frame.p_data, video_frame.line_stride_in_bytes * video_frame.yres);
-
-                if (frames)
-                    frames->push(persFrame);
-            }
-
             int frame_rate = video_frame.frame_rate_N / video_frame.frame_rate_D;
             int m_seconds = (1000 / frame_rate);
 
             NDIlib_framesync_free_video(frames_synchronizer, &video_frame);
             end = std::chrono::high_resolution_clock::now();
-            std::this_thread::sleep_for(std::chrono::milliseconds(m_seconds-2));*/ // wait for a duration of 2 frames before pulling a frame.
+            std::this_thread::sleep_for(std::chrono::milliseconds(m_seconds-2)); // wait for a duration of 2 frames before pulling a frame.
         }
         else {
            
@@ -244,47 +174,23 @@ void NDI_Recv::run()
                 // Video data
             case NDIlib_frame_type_video:
             {
+                IDeckLinkVideoFrame* videoFrame = Interface_Manager::convert_ndi_2_decklink_frame_s(&video_frame);
 
-                IDeckLinkVideoFrame* frame = Interface_Manager::convert_ndi_2_decklink_frame_s(&video_frame);
-
-                std::cout << "Frame converted: " << frame << std::endl;
-               /* if (persFrame->line_stride_in_bytes != video_frame.line_stride_in_bytes)
+                if (videoFrame)
                 {
-                    persFrame->xres = video_frame.xres;
-                    persFrame->yres = video_frame.yres;
-                    persFrame->data_size_in_bytes = video_frame.data_size_in_bytes;
-                    persFrame->line_stride_in_bytes = video_frame.line_stride_in_bytes;
-                    persFrame->FourCC = video_frame.FourCC;
-                    persFrame->frame_format_type = video_frame.frame_format_type;
-                    persFrame->timecode = video_frame.timecode;
-                    persFrame->timestamp = video_frame.timestamp;
-                    persFrame->p_metadata = video_frame.p_metadata;
-                    persFrame->frame_rate_D = video_frame.frame_rate_D;
-                    persFrame->frame_rate_N = video_frame.frame_rate_N;
-                    persFrame->picture_aspect_ratio = video_frame.picture_aspect_ratio;
-
-                    if (persFrame->p_data)
-                        delete persFrame->p_data;
-                    persFrame->p_data = nullptr;
+                    auto loopThroughVideoFrame = std::make_shared<LoopThroughVideoFrame>(com_ptr<IDeckLinkVideoFrame>(videoFrame));
+                    loopThroughVideoFrame->setInputFrameArrivedReferenceTime(stream_time);
+                    loopThroughVideoFrame->setVideoStreamTime(stream_time);
+                    loopThroughVideoFrame->setVideoFrameDuration(frameDuration);
+                    videoArrivedCallback(std::move(loopThroughVideoFrame));
                 }
-
-
-                if (persFrame->p_data == nullptr)
-                    persFrame->p_data = (uint8_t*) new uint8_t[video_frame.line_stride_in_bytes * video_frame.yres];
-
-                memcpy(persFrame->p_data, video_frame.p_data, video_frame.line_stride_in_bytes * video_frame.yres);
-
-                if (frames)
-                    frames->push(persFrame);*/
+                stream_time += frameDuration;
                 NDIlib_recv_free_video_v2(rec_instance, &video_frame);
 
-                
+
                 break;
             }
             }
-
-
-
         }
 
     }
@@ -350,11 +256,11 @@ NDI_Recv::NDI_Recv(bool* controller, uint32_t c, std::string s)
     }
     rec_instance = NDIlib_recv_create_v3(&recv_desc);
 
-    if (rec_instance)
-    {
-        // if we have a receiver, we can create a frame synchronizer.
-        frames_synchronizer = NDIlib_framesync_create(rec_instance);
-    }
+    //if (rec_instance)
+    //{
+    //    // if we have a receiver, we can create a frame synchronizer.
+    //    frames_synchronizer = NDIlib_framesync_create(rec_instance);
+    //}
 }
 
 void NDI_Recv::disconnect()

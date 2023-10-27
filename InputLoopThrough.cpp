@@ -101,7 +101,7 @@
 #include "ndi_api.hpp"
 
 const BMDAudioSampleType	kAudioSampleType			= bmdAudioSampleType32bitInteger;
-const BMDDisplayMode		kInitialDisplayMode			= bmdModeNTSC;
+const BMDDisplayMode		kInitialDisplayMode			= bmdModeHD1080i50;
 const BMDPixelFormat		kInitialPixelFormat			= bmdFormat10BitYUV;
 const uint32_t				kDefaultAudioChannelCount	= 16;
 const bool					kWaitForReferenceToLock		= true;		// True if reference lock should be waited for before starting capture/playback
@@ -239,17 +239,6 @@ void processVideo(std::shared_ptr<LoopThroughVideoFrame>& videoFrame, com_ptr<De
 	// Check playback is active, if it is inactive, it is likely that the incoming display mode is not supported by output
 	if (!deckLinkOutput->isPlaybackActive())
 		return;
-
-	std::cout << "Frame Arrived" << std::endl;
-
-	//// Simulate doing something by using a busy wait loop
-	//// This is more precise than sleeping
-	//int delay = (int)std::round(g_sleepDistribution(g_randomEngine) * 1000);
-	//auto target = std::chrono::steady_clock::now() + std::chrono::microseconds(delay);
-	//uint32_t i = 0;
-	//while (std::chrono::steady_clock::now() < target)
-	//	++i;
-
 	// At end of function, remember to queue your output frame
 	deckLinkOutput->scheduleVideoFrame(std::move(videoFrame));
 }
@@ -452,7 +441,6 @@ HRESULT InputLoopThrough(NDI_Recv* input_source)
 
 	com_ptr<IDeckLinkIterator>			deckLinkIterator;
 	com_ptr<IDeckLink>					deckLink;
-
 	com_ptr<DeckLinkOutputDevice>		deckLinkOutput;
 
 	DispatchQueue 						videoDispatchQueue(kVideoDispatcherThreadCount);

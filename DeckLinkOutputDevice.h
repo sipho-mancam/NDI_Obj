@@ -119,7 +119,7 @@ private:
 
 	// Private methods
 	void		scheduleVideoFramesThread(void);
-	void		scheduleAudioPacketsThread(void);
+	//void		scheduleAudioPacketsThread(void);
 	bool		waitForReferenceSignalToLock();
 	void 		checkEndOfPreroll(void);
 
