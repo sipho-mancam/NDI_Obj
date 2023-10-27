@@ -7,6 +7,9 @@
 #include <iostream>
 #include <ctime>
 
+static IDeckLinkOutput* outDevice;
+HRESULT InputLoopThrough(NDI_Recv* input_source);
+
 void log_to_file()
 {
     std::ofstream log_file("C:\\Users\\Chroma2\\Documents\\ndi_deck_log.txt");
@@ -38,11 +41,11 @@ void log_to_file()
 int main()
 {
     init();
-    bool exit_flag = false;
+    bool exit_flag = false, outputStarted = false;
 
     Interface_Manager interface_manager;
     interface_manager.start_decklink();
-    interface_manager.start_ndi();
+    //interface_manager.start_ndi();
 
     DeckLinkCard* card = new DeckLinkCard();
 
@@ -51,9 +54,10 @@ int main()
     inputPort->subscribe_2_input_q(interface_manager.getDeckLinkInputQ());
     inputPort->startCapture();
     
-    CameraOutputPort* video_out = card->SelectCamOutputPort(3, 0);
-    video_out->subscribe_2_q(interface_manager.getDeckLinkOutputQ());
-    video_out->start();    
+    CameraOutputPort* video_out = card->SelectCamOutputPort(2, 0);
+    /*video_out->subscribe_2_q(interface_manager.getDeckLinkOutputQ());
+    video_out->start();*/
+    outDevice = video_out->getOutputDevice();
     
     NDI_Sender* sender = new NDI_Sender(&exit_flag, "");
     sender->subscribe_to_q(interface_manager.getNDIOutputQ());
@@ -63,6 +67,8 @@ int main()
     receiver->subscribe_to_q(interface_manager.getNDIInputQ());
     auto start = std::chrono::high_resolution_clock::now();
 
+    std::thread outputRender(&InputLoopThrough, receiver);
+
     Discovery* discovery = new Discovery(&exit_flag);
     discovery->start();
     discovery->showMeList();
@@ -71,15 +77,16 @@ int main()
 
     while (!exit_flag)
     {
-
         if (((std::chrono::high_resolution_clock::now() - start) >= std::chrono::seconds(1)))
         {
             // update the user list
             discovery->showMeList();
             start = std::chrono::high_resolution_clock::now();
+           
         }
 
-        if (_kbhit()) {
+        if (_kbhit()) 
+        {
             console_key = _getch();
             if (console_key == 27)
                 exit_flag = true;
@@ -105,7 +112,6 @@ int main()
                 else {
                     receiver->connect(s);
                 }
-
                 receiver->start();
                 std::cin.clear();
                 discovery->stop();
@@ -132,6 +138,82 @@ int main()
     //logger.join()
 
     clean_up();
+}
+
+
+
+IDeckLinkVideoFrame* Interface_Manager::convert_ndi_2_decklink_frame_s(NDIlib_video_frame_v2_t* ndi_frame)
+{
+    // Declare some decklink object and allocate it some memory .... copy video parameters and return it
+    IDeckLinkMutableVideoFrame* frame = nullptr, * outframe = nullptr;
+    static IDeckLinkVideoConversion* converter = nullptr;
+    com_ptr<IDeckLinkMutableVideoFrame> frame_8, frame_10;
+
+    extern IDeckLinkOutput* outDevice;
+    if (outDevice) {
+        CHECK_DECK_ERROR(outDevice->CreateVideoFrame(
+            ndi_frame->xres,
+            ndi_frame->yres,
+            (((ndi_frame->xres + 47) / 48) * 128),
+            bmdFormat10BitYUV,
+            bmdFrameFlagDefault, frame_10.releaseAndGetAddressOf()));
+    }
+
+    CHECK_DECK_ERROR(GetDeckLinkFrameConverter(&converter));
+
+    switch (ndi_frame->FourCC)
+    {
+    case NDIlib_FourCC_type_BGRA: // 8bit BGRA data out..
+    {
+
+        if (outDevice)
+        {
+            CHECK_DECK_ERROR(outDevice->CreateVideoFrame(
+                ndi_frame->xres,
+                ndi_frame->yres,
+                ndi_frame->line_stride_in_bytes,
+                bmdFormat8BitBGRA,
+                bmdFrameFlagDefault, frame_8.releaseAndGetAddressOf()));
+
+            CHECK_DECK_ERROR(outDevice->CreateVideoFrame(
+                ndi_frame->xres,
+                ndi_frame->yres,
+                (((ndi_frame->xres + 47) / 48) * 128),
+                bmdFormat10BitYUV,
+                bmdFrameFlagDefault, frame_10.releaseAndGetAddressOf()));
+        }
+
+        if (converter)
+        {
+            converter->ConvertFrame(frame_8.get(), frame_10.get());
+        }
+        outframe = frame_10.get();
+        break;
+    }
+
+    case NDIlib_FourCC_type_UYVY:
+    {
+        if (outDevice)
+        {
+            CHECK_DECK_ERROR(outDevice->CreateVideoFrame(
+                ndi_frame->xres,
+                ndi_frame->yres,
+                ndi_frame->line_stride_in_bytes,
+                bmdFormat8BitYUV,
+                bmdFrameFlagDefault, frame_8.releaseAndGetAddressOf()));
+        }
+
+        if (converter)
+        {
+            converter->ConvertFrame(frame_8.get(), frame_10.get());
+        }
+
+        outframe = frame_10.get();
+        break;
+    }
+    }
+    outframe->AddRef();
+    return outframe;
 }
 
 

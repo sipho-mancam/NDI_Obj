@@ -30,6 +30,8 @@
 #include "common.hpp"
 #include "decklinkAPI.hpp"
 #include "decklink_kernels.cuh"
+#include "LoopThroughVideoFrame.h"
+#include "interface_manager.hpp"
 
 static uint32_t ids = 0;
 
@@ -114,9 +116,12 @@ protected:
     DeckLinkOutputPort* keyPort;
     DeckLinkOutputPort* fillPort;
     bool connected, running, fillAndKey;
-
+   
 
     NDIlib_video_frame_v2_t* persFrame;
+
+    using VideoInputArrivedCallback = std::function<void(std::shared_ptr<LoopThroughVideoFrame>)>;
+    VideoInputArrivedCallback videoArrivedCallback;
 
     void run() override;
     void splitKeyandFill(cv::Mat& src, cv::Mat& dstA, cv::Mat& dstB /*This must be the alpha channel*/);
@@ -134,11 +139,12 @@ public:
     void start();
     void stop();
 
+    void onVideoInputArrived(const VideoInputArrivedCallback& callback) { videoArrivedCallback = callback; }
+
     void popFrame();
     void clearAll();
     uint32_t getChannel() { return channel; }
     std::string getSource() { return source; }
-
 
     ~NDI_Recv();
 };

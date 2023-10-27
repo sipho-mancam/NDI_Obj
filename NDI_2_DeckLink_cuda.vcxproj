@@ -12,23 +12,33 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="common.hpp" />
+    <ClInclude Include="com_ptr.h" />
     <ClInclude Include="decklinkAPI.hpp" />
     <ClInclude Include="DeckLinkAPI_h.h" />
     <ClInclude Include="DeckLinkDevice.h" />
+    <ClInclude Include="DeckLinkOutputDevice.h" />
     <ClInclude Include="decklink_api.hpp" />
     <ClInclude Include="decklink_kernels.cuh" />
+    <ClInclude Include="DispatchQueue.h" />
     <ClInclude Include="interface_manager.hpp" />
+    <ClInclude Include="LatencyStatistics.h" />
+    <ClInclude Include="LoopThroughVideoFrame.h" />
     <ClInclude Include="ndi_api.hpp" />
     <ClInclude Include="NDI_constants.hpp" />
     <ClInclude Include="platform.h" />
+    <ClInclude Include="ReferenceTime.h" />
+    <ClInclude Include="SampleQueue.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DeckLinkAPI_i.c" />
     <ClCompile Include="DeckLinkDevice.cpp" />
+    <ClCompile Include="DeckLinkOutputDevice.cpp" />
     <ClCompile Include="decklink_api_2.cpp" />
+    <ClCompile Include="InputLoopThrough.cpp" />
     <ClCompile Include="interface_manager.cpp" />
+    <ClCompile Include="LatencyStatistics.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="ndi_api.cpp" />
     <ClCompile Include="platform.cpp" />

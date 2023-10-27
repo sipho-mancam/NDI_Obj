@@ -9,6 +9,7 @@
 #include "ndi_api.hpp"
 
 
+
 class Interface_Manager {
 private:
     std::queue<IDeckLinkVideoFrame*> decklink_out_q;
@@ -27,11 +28,15 @@ private:
 
     VideoFrameObj* frame;
 
+    
+
     NDIlib_video_frame_v2_t NDI_video_frame_10bit;
     NDIlib_video_frame_v2_t NDI_video_frame_16bit;
 
     NDIlib_video_frame_v2_t convert_decklink_2_ndi_frame(IDeckLinkVideoInputFrame*);
-    IDeckLinkVideoFrame* convert_ndi_2_decklink_frame(NDIlib_video_frame_v2_t*);
+    IDeckLinkVideoFrame* convert_ndi_2_decklink_frame(NDIlib_video_frame_v2_t*); 
+    
+    
 
     void process_ndi_q_thread();
     void process_decklink_q_thread();
@@ -47,6 +52,8 @@ public:
 
     void start_ndi();
     void start_decklink();
+
+    static IDeckLinkVideoFrame* convert_ndi_2_decklink_frame_s(NDIlib_video_frame_v2_t*);
 
     template <typename T>
     std::queue<T*>* getQRef(bool out = true); // the bool detects for ndi_queues

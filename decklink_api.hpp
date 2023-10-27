@@ -204,7 +204,7 @@ public:
 
     BMDTimeValue getCurrentPBTime();
 
-
+    IDeckLinkOutput* getOutputDevice() { return output; }
     bool waitForReference(); // waits for as long as the reference signal is not obtained.
 
     // these are special methods for the Fill and Key.

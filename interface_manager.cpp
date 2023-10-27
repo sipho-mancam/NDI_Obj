@@ -95,6 +95,7 @@ IDeckLinkVideoFrame* Interface_Manager::convert_ndi_2_decklink_frame(NDIlib_vide
     return outframe;
 }
 
+
 NDIlib_video_frame_v2_t Interface_Manager::convert_decklink_2_ndi_frame(IDeckLinkVideoInputFrame* frame)
 {
     // declare the NDI frame, copy the decklink parameters over to it, ... and return it.

@@ -128,6 +128,8 @@ void NDI_Recv::run()
          frames = new std::queue<NDIlib_video_frame_v2_t*>();*/
     bool check_init = false;
     std::chrono::steady_clock::time_point start, end;
+    BMDTimeValue stream_time = 0;
+    BMDTimeValue frameDuration = 1000;
 
     while (!(*exit) && running)
     {
@@ -144,7 +146,26 @@ void NDI_Recv::run()
             if (video_frame.xres == 0 || video_frame.p_data == nullptr)
                 continue;
 
-            if (video_frame.FourCC == NDIlib_FourCC_type_BGRA)
+            IDeckLinkVideoFrame* videoFrame = Interface_Manager::convert_ndi_2_decklink_frame_s(&video_frame);
+
+            std::cout <<"Frame Created: " << videoFrame << std::endl;
+
+            if (videoFrame)
+            {
+                auto loopThroughVideoFrame = std::make_shared<LoopThroughVideoFrame>(com_ptr<IDeckLinkVideoFrame>(videoFrame));
+                loopThroughVideoFrame->setInputFrameArrivedReferenceTime(0);
+              
+                loopThroughVideoFrame->setVideoStreamTime(stream_time);
+                loopThroughVideoFrame->setVideoFrameDuration(frameDuration);
+                videoArrivedCallback(std::move(loopThroughVideoFrame));
+                
+            }
+
+            stream_time += frameDuration;
+            
+            NDIlib_framesync_free_video(frames_synchronizer, &video_frame);
+
+           /* if (video_frame.FourCC == NDIlib_FourCC_type_BGRA)
             {
                 
                 if (persFrame->line_stride_in_bytes != video_frame.line_stride_in_bytes)
@@ -212,7 +233,7 @@ void NDI_Recv::run()
 
             NDIlib_framesync_free_video(frames_synchronizer, &video_frame);
             end = std::chrono::high_resolution_clock::now();
-            std::this_thread::sleep_for(std::chrono::milliseconds(m_seconds-2)); // wait for a duration of 2 frames before pulling a frame.
+            std::this_thread::sleep_for(std::chrono::milliseconds(m_seconds-2));*/ // wait for a duration of 2 frames before pulling a frame.
         }
         else {
            
@@ -223,7 +244,11 @@ void NDI_Recv::run()
                 // Video data
             case NDIlib_frame_type_video:
             {
-                if (persFrame->line_stride_in_bytes != video_frame.line_stride_in_bytes)
+
+                IDeckLinkVideoFrame* frame = Interface_Manager::convert_ndi_2_decklink_frame_s(&video_frame);
+
+                std::cout << "Frame converted: " << frame << std::endl;
+               /* if (persFrame->line_stride_in_bytes != video_frame.line_stride_in_bytes)
                 {
                     persFrame->xres = video_frame.xres;
                     persFrame->yres = video_frame.yres;
@@ -250,7 +275,7 @@ void NDI_Recv::run()
                 memcpy(persFrame->p_data, video_frame.p_data, video_frame.line_stride_in_bytes * video_frame.yres);
 
                 if (frames)
-                    frames->push(persFrame);
+                    frames->push(persFrame);*/
                 NDIlib_recv_free_video_v2(rec_instance, &video_frame);
 
                 
