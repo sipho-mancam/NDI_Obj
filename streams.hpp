@@ -60,5 +60,7 @@ namespace ndi_deck {
 		void kill_stream(int id);
 		void kill_all_streams();
 
+		~StreamManager();
+
 	};
 }

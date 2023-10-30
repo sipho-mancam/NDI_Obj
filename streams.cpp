@@ -186,11 +186,15 @@ OutputStream* StreamManager::create_output_stream(int resolution)
 	}
 }
 
-
 void StreamManager::kill_all_streams()
 {
 	for (Stream* stream : streams)
 	{
 		stream->stop_stream();
 	}
+}
+
+StreamManager::~StreamManager()
+{
+	kill_all_streams();
 }
