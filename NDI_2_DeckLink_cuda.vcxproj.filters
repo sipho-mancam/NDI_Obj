@@ -58,6 +58,21 @@
     <ClCompile Include="platform.cpp">
       <Filter>DeckLink\Source</Filter>
     </ClCompile>
+    <ClCompile Include="DeckLinkOutputDevice.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="InputLoopThrough.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="LatencyStatistics.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="streams.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
+    <ClCompile Include="DispatchQueue.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="common.hpp">
@@ -94,6 +109,33 @@
       <Filter>NDI</Filter>
     </ClInclude>
     <ClInclude Include="DeckLinkAPI_h.h">
+      <Filter>HeaderFiles</Filter>
+    </ClInclude>
+    <ClInclude Include="com_ptr.h">
+      <Filter>HeaderFiles</Filter>
+    </ClInclude>
+    <ClInclude Include="DeckLinkOutputDevice.h">
+      <Filter>HeaderFiles</Filter>
+    </ClInclude>
+    <ClInclude Include="DispatchQueue.hpp">
+      <Filter>HeaderFiles</Filter>
+    </ClInclude>
+    <ClInclude Include="LatencyStatistics.h">
+      <Filter>HeaderFiles</Filter>
+    </ClInclude>
+    <ClInclude Include="LoopThroughVideoFrame.h">
+      <Filter>HeaderFiles</Filter>
+    </ClInclude>
+    <ClInclude Include="ReferenceTime.h">
+      <Filter>HeaderFiles</Filter>
+    </ClInclude>
+    <ClInclude Include="SampleQueue.h">
+      <Filter>HeaderFiles</Filter>
+    </ClInclude>
+    <ClInclude Include="streams.hpp">
+      <Filter>HeaderFiles</Filter>
+    </ClInclude>
+    <ClInclude Include="input_output.hpp">
       <Filter>HeaderFiles</Filter>
     </ClInclude>
   </ItemGroup>

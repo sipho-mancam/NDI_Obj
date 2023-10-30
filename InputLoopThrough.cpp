@@ -81,126 +81,197 @@
 //*************************************************************************************/
 
 
-#include <chrono>
-#include <condition_variable>
-#include <functional>
-#include <map>
-#include <memory>
-#include <mutex>
-#include <random>
-#include <thread>
+//#include <chrono>
+//#include <condition_variable>
+//#include <functional>
+//#include <map>
+//#include <memory>
+//#include <mutex>
+//#include <random>
+//#include <thread>
+//
+//#include "DeckLinkOutputDevice.h"
+//#include "DispatchQueue.h"
+//#include "SampleQueue.h"
+//#include "LatencyStatistics.h"
+//#include "ReferenceTime.h"
+//#include "DeckLinkAPI.h"
+//#include "com_ptr.h"
+//#include "platform.h"
+//#include "ndi_api.hpp"
+//
 
-#include "DeckLinkOutputDevice.h"
-#include "DispatchQueue.h"
-#include "SampleQueue.h"
-#include "LatencyStatistics.h"
-#include "ReferenceTime.h"
-#include "DeckLinkAPI.h"
-#include "com_ptr.h"
-#include "platform.h"
-#include "ndi_api.hpp"
+#include "input_output.hpp"
 
 const BMDAudioSampleType	kAudioSampleType			= bmdAudioSampleType32bitInteger;
 const BMDDisplayMode		kInitialDisplayMode			= bmdModeHD1080i50;
 const BMDPixelFormat		kInitialPixelFormat			= bmdFormat10BitYUV;
 const uint32_t				kDefaultAudioChannelCount	= 16;
 const bool					kWaitForReferenceToLock		= true;		// True if reference lock should be waited for before starting capture/playback
-
+//
 const int					kOutputVideoPreroll			= 1;		// number of output preroll frames
 const int					kVideoDispatcherThreadCount	= 3;		// number of threads used by video processing dispatcher
 const int					kAudioDispatcherThreadCount	= 2;		// number of threads used by audio processing dispatcher
 const int					kPrintDispatcherThreadCount	= 1;		// number of threads used by print stdout dispatcher
-
-const bool					kPrintRollingAverage		= true;		// If true, display latency as rolling average, if false print latency for each frame
-const int					kRollingAverageSampleCount	= 300;		// Number of samples for calculating rolling average of latency
-const long					kRollingAverageUpdateRateMs	= 2000;		// Print rolling average every 2 seconds
-
-const double				kProcessingAdditionalTimeMean		= 5.0;		// Mean additional time injected into video processing thread (ms)
-const double				kProcessingAdditionalTimeStdDev		= 0.1;		// Standard deviation of time injected into video processing thread (ms)
-
-// Output frame completion result pair = { Completion result string, frame output boolean}
-const std::map<BMDOutputFrameCompletionResult, std::pair<const char*, bool>> kOutputCompletionResults
-{
-	{ bmdOutputFrameCompleted,		std::make_pair("completed",			true) },
-	{ bmdOutputFrameDisplayedLate,	std::make_pair("displayed late",	true) },
-	{ bmdOutputFrameDropped,		std::make_pair("dropped",			false) },
-	{ bmdOutputFrameFlushed,		std::make_pair("flushed",			false) },
-};
-
-// List of known pixel formats and their matching display names
-const std::map<BMDPixelFormat, const char*> kPixelFormats =
-{
-	{ bmdFormat8BitYUV,		"8-bit YUV" },
-	{ bmdFormat10BitYUV,	"10-bit YUV" },
-	{ bmdFormat8BitARGB,	"8-bit ARGB" },
-	{ bmdFormat8BitBGRA,	"8-bit BGRA" },
-	{ bmdFormat10BitRGB,	"10-bit RGB" },
-	{ bmdFormat12BitRGB,	"12-bit RGB" },
-	{ bmdFormat12BitRGBLE,	"12-bit RGBLE" },
-	{ bmdFormat10BitRGBXLE,	"10-bit RGBXLE" },
-	{ bmdFormat10BitRGBX,	"10-bit RGBX" },
-};
-
-struct ThreadNotifier
-{
-	std::mutex mutex;
-	std::condition_variable condition;
-
-	ThreadNotifier() :
-		m_notified(false)
-	{ }
-
-	void reset()
-	{
-		std::lock_guard<std::mutex> lock(mutex);
-		m_notified = false;
-	}
-
-	void notify()
-	{
-		std::lock_guard<std::mutex> lock(mutex);
-		m_notified = true;
-		condition.notify_all();
-	}
-
-	bool isNotified()
-	{
-		std::lock_guard<std::mutex> lock(mutex);
-		return m_notified;
-	}
-
-	bool isNotifiedLocked()
-	{
-		return m_notified;
-	}
-
-private:
-	bool m_notified;
-};
-
+//
+//const bool					kPrintRollingAverage		= true;		// If true, display latency as rolling average, if false print latency for each frame
+//const int					kRollingAverageSampleCount	= 300;		// Number of samples for calculating rolling average of latency
+//const long					kRollingAverageUpdateRateMs	= 2000;		// Print rolling average every 2 seconds
+//
+//const double				kProcessingAdditionalTimeMean		= 5.0;		// Mean additional time injected into video processing thread (ms)
+//const double				kProcessingAdditionalTimeStdDev		= 0.1;		// Standard deviation of time injected into video processing thread (ms)
+//
+//// Output frame completion result pair = { Completion result string, frame output boolean}
+//const std::map<BMDOutputFrameCompletionResult, std::pair<const char*, bool>> kOutputCompletionResults
+//{
+//	{ bmdOutputFrameCompleted,		std::make_pair("completed",			true) },
+//	{ bmdOutputFrameDisplayedLate,	std::make_pair("displayed late",	true) },
+//	{ bmdOutputFrameDropped,		std::make_pair("dropped",			false) },
+//	{ bmdOutputFrameFlushed,		std::make_pair("flushed",			false) },
+//};
+//
+//// List of known pixel formats and their matching display names
+//const std::map<BMDPixelFormat, const char*> kPixelFormats =
+//{
+//	{ bmdFormat8BitYUV,		"8-bit YUV" },
+//	{ bmdFormat10BitYUV,	"10-bit YUV" },
+//	{ bmdFormat8BitARGB,	"8-bit ARGB" },
+//	{ bmdFormat8BitBGRA,	"8-bit BGRA" },
+//	{ bmdFormat10BitRGB,	"10-bit RGB" },
+//	{ bmdFormat12BitRGB,	"12-bit RGB" },
+//	{ bmdFormat12BitRGBLE,	"12-bit RGBLE" },
+//	{ bmdFormat10BitRGBXLE,	"10-bit RGBXLE" },
+//	{ bmdFormat10BitRGBX,	"10-bit RGBX" },
+//};
+//
+//struct ThreadNotifier
+//{
+//	std::mutex mutex;
+//	std::condition_variable condition;
+//
+//	ThreadNotifier() :
+//		m_notified(false)
+//	{ }
+//
+//	void reset()
+//	{
+//		std::lock_guard<std::mutex> lock(mutex);
+//		m_notified = false;
+//	}
+//
+//	void notify()
+//	{
+//		std::lock_guard<std::mutex> lock(mutex);
+//		m_notified = true;
+//		condition.notify_all();
+//	}
+//
+//	bool isNotified()
+//	{
+//		std::lock_guard<std::mutex> lock(mutex);
+//		return m_notified;
+//	}
+//
+//	bool isNotifiedLocked()
+//	{
+//		return m_notified;
+//	}
+//
+//private:
+//	bool m_notified;
+//};
+//
 uint32_t														g_audioChannelCount = kDefaultAudioChannelCount;
+//
+//LatencyStatistics												g_videoInputLatencyStatistics(kRollingAverageSampleCount);
+//LatencyStatistics												g_videoProcessingLatencyStatistics(kRollingAverageSampleCount);
+//LatencyStatistics												g_videoOutputLatencyStatistics(kRollingAverageSampleCount);
+//LatencyStatistics												g_audioProcessingLatencyStatistics(kRollingAverageSampleCount);
+//
+//std::map<BMDOutputFrameCompletionResult, int>					g_frameCompletionResultCount;
+//int 															g_outputFrameCount = 0;
+//int																g_droppedOnCaptureFrameCount = 0;
+//
+//std::default_random_engine 										g_randomEngine;
+//std::normal_distribution<double> 								g_sleepDistribution(kProcessingAdditionalTimeMean, kProcessingAdditionalTimeStdDev);
+//
+//ThreadNotifier													g_printRollingAverageNotifier;
+//ThreadNotifier													g_loopThroughSessionNotifier;
+//
+//struct FormatDescription
+//{
+//	BMDDisplayMode displayMode;
+//	bool is3D;
+//	BMDPixelFormat pixelFormat;
+//};
 
-LatencyStatistics												g_videoInputLatencyStatistics(kRollingAverageSampleCount);
-LatencyStatistics												g_videoProcessingLatencyStatistics(kRollingAverageSampleCount);
-LatencyStatistics												g_videoOutputLatencyStatistics(kRollingAverageSampleCount);
-LatencyStatistics												g_audioProcessingLatencyStatistics(kRollingAverageSampleCount);
 
-std::map<BMDOutputFrameCompletionResult, int>					g_frameCompletionResultCount;
-int 															g_outputFrameCount = 0;
-int																g_droppedOnCaptureFrameCount = 0;
-
-std::default_random_engine 										g_randomEngine;
-std::normal_distribution<double> 								g_sleepDistribution(kProcessingAdditionalTimeMean, kProcessingAdditionalTimeStdDev);
-
-ThreadNotifier													g_printRollingAverageNotifier;
-ThreadNotifier													g_loopThroughSessionNotifier;
-
-struct FormatDescription
+DispatchQueue::DispatchQueue(size_t numThreads) :
+	m_cancelWorkers(false)
 {
-	BMDDisplayMode displayMode;
-	bool is3D;
-	BMDPixelFormat pixelFormat;
-};
+	for (size_t i = 0; i < numThreads; i++)
+	{
+		m_workerThreads.emplace_back(&DispatchQueue::workerThread, this);
+	}
+}
+
+DispatchQueue::~DispatchQueue()
+{
+	// Stop all threads once they have completed current job
+	{
+		std::lock_guard<std::mutex> lock(m_mutex);
+		m_cancelWorkers = true;
+	}
+	m_condition.notify_all();
+
+	for (auto& worker : m_workerThreads)
+	{
+		worker.join();
+	}
+}
+
+template<class F, class... Args>
+void DispatchQueue::dispatch(F&& fn, Args&& ...args)
+{
+	using DispatchFunctionBinding = decltype(std::bind(std::declval<F>(), std::declval<Args>()...));
+	{
+		std::lock_guard<std::mutex> lock(m_mutex);
+		m_functionQueue.push(DispatchFunctionBinding(std::forward<F>(fn), std::forward<Args>(args)...));
+	}
+	m_condition.notify_one();
+}
+
+void DispatchQueue::workerThread()
+{
+	while (true)
+	{
+		{
+			std::unique_lock<std::mutex> lock(m_mutex);
+			m_condition.wait(lock, [&] { return !m_functionQueue.empty() || m_cancelWorkers; });
+		}
+
+		while (true)
+		{
+			DispatchFunction func;
+			{
+				std::lock_guard<std::mutex> lock(m_mutex);
+				if (m_functionQueue.empty())
+					break;
+
+				func = std::move(m_functionQueue.front());
+				m_functionQueue.pop();
+			}
+
+			func();
+		}
+
+		if (m_cancelWorkers)
+			// Exit thread
+			break;
+	}
+}
+
+
 
 bool operator==(const FormatDescription& desc1, const FormatDescription& desc2)
 {
@@ -228,14 +299,6 @@ void dispatch_printf(DispatchQueue& dispatchQueue, const char* format, Args... a
 
 void processVideo(std::shared_ptr<LoopThroughVideoFrame>& videoFrame, com_ptr<DeckLinkOutputDevice>& deckLinkOutput)
 {
-	// Main video processing function, it is intended to invoke with DispatchQueue to allow multi-threading of incoming frames
-	// Inputs:	videoFrame - input/output video frame with stream time
-	//			deckLinkOutput - reference to IDeckLinkOutput
-	// At end of function, queue output frame for scheduling by calling deckLinkOutput->scheduleVideoFrame
-	//
-	// Developers are encouraged to insert their own processing test code in this function, by default we will simply forward the LoopThroughVideoFrame object.
-	// The input frame may be replaced by another IDeckLinkVideoFrame object for output by calling LoopThroughVideoFrame::setVideoFrame()
-
 	// Check playback is active, if it is inactive, it is likely that the incoming display mode is not supported by output
 	if (!deckLinkOutput->isPlaybackActive())
 		return;
@@ -455,6 +518,8 @@ HRESULT InputLoopThrough(NDI_Recv* input_source)
 
 	int counter = 0;
 
+	// create device --> make input / output --> return input component or output component
+
 	while (deckLinkIterator->Next(deckLink.releaseAndGetAddressOf()) == S_OK)
 	{
 		counter++;
@@ -482,11 +547,11 @@ HRESULT InputLoopThrough(NDI_Recv* input_source)
 		// Get the IO support for device
 		if (deckLinkAttributes->GetInt(BMDDeckLinkVideoIOSupport, &videoIOSupport) == S_OK)
 		{
-			if (deckLinkAttributes->GetInt(BMDDeckLinkMaximumAudioChannels, &maxAudioChannels) != S_OK)
+			/*if (deckLinkAttributes->GetInt(BMDDeckLinkMaximumAudioChannels, &maxAudioChannels) != S_OK)
 			{
 				deckLink = nullptr;
 				continue;
-			}
+			}*/
 
 
 			if (!deckLinkOutput && (((BMDVideoIOSupport)videoIOSupport & bmdDeviceSupportsPlayback) != 0))
@@ -548,6 +613,7 @@ HRESULT InputLoopThrough(NDI_Recv* input_source)
 			currentFormatDesc = formatDesc;
 		}
 
+		// Register Input Callbacks
 		input_source->onVideoInputArrived([&](std::shared_ptr<LoopThroughVideoFrame> videoFrame) { videoDispatchQueue.dispatch(processVideo, videoFrame, deckLinkOutput); });
 		// Register output callbacks
 		deckLinkOutput->onScheduledFrameCompleted([&](std::shared_ptr<LoopThroughVideoFrame> videoFrame) { updateCompletedFrameLatency(videoFrame, std::ref(printDispatchQueue)); });
@@ -585,10 +651,10 @@ HRESULT InputLoopThrough(NDI_Recv* input_source)
 
 		{
 			std::unique_lock<std::mutex> lock(g_loopThroughSessionNotifier.mutex);
-
 			g_loopThroughSessionNotifier.condition.wait(lock, [&] {
 				return g_loopThroughSessionNotifier.isNotifiedLocked() || formatDesc != currentFormatDesc;
 			});
+
 		}
 
 		// If we are in rolling average mode, cancel thread
