@@ -3,7 +3,7 @@
 
 using namespace ndi_deck;
 
-OutputStream::OutputStream(com_ptr<IDeckLink>& device, displayResoltion res, int id)
+OutputStream::OutputStream(com_ptr<IDeckLink>& device, int res, int id)
 	: Stream(),
 	kInitialPixelFormat(bmdFormat10BitYUV),
 	kWaitForReferenceToLock(true),
@@ -23,6 +23,7 @@ OutputStream::OutputStream(com_ptr<IDeckLink>& device, displayResoltion res, int
 
 	currentFormatDesc = {kInitialDisplayMode, false, kInitialPixelFormat};
 	stream_id = id;
+	init();
 
 }
 
@@ -144,4 +145,52 @@ void OutputStream::stop_stream()
 
 	// stop ndi receiver
 	receiver->stop();
+}
+
+
+
+StreamManager::StreamManager()
+{
+	result = GetDeckLinkIterator(deckLinkIterator.releaseAndGetAddressOf());
+	if (result != S_OK)
+		return;
+	while (deckLinkIterator->Next(deckLink.releaseAndGetAddressOf()) == S_OK)
+	{
+		unused_devices.push_back(deckLink);
+	}
+}
+
+
+Stream* StreamManager::create_input_stream(int resolution)
+{
+	return nullptr;
+}
+
+
+OutputStream* StreamManager::create_output_stream(int resolution)
+{
+	try {
+
+		OutputStream* out_stream = new OutputStream(unused_devices[3], resolution);
+		com_ptr<IDeckLink> dev = unused_devices[3];
+		used_devices.push_back(dev);
+		unused_devices.erase(unused_devices.begin()); // remove device from used to track the devices we still have left.
+
+		streams.push_back(out_stream);
+		std::cout << "Stream Created Successfully" << std::endl;
+		return out_stream;
+
+	}catch (std::exception& e) {
+		std::cerr << "Unable to create any more streams, out of Decklink Ports" << std::endl;
+		return nullptr;
+	}
+}
+
+
+void StreamManager::kill_all_streams()
+{
+	for (Stream* stream : streams)
+	{
+		stream->stop_stream();
+	}
 }

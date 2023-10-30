@@ -1,6 +1,7 @@
 #include "ndi_api.hpp"
 #include "interface_manager.hpp"
 #include "decklink_api.hpp"
+#include "streams.hpp"
 
 
 #include <fstream>
@@ -48,7 +49,6 @@ int main()
     //interface_manager.start_ndi();
 
     DeckLinkCard* card = new DeckLinkCard();
-
     DeckLinkInputPort* inputPort = card->SelectInputPort(0);
     assert(inputPort != nullptr);
     inputPort->subscribe_2_input_q(interface_manager.getDeckLinkInputQ());
@@ -61,21 +61,16 @@ int main()
     sender->subscribe_to_q(interface_manager.getNDIOutputQ());
     sender->start();
 
-    NDI_Recv* receiver = new NDI_Recv(&exit_flag, 0);
-    receiver->subscribe_to_q(interface_manager.getNDIInputQ());
-    auto start = std::chrono::high_resolution_clock::now();
 
-    TCHAR compName[MAX_COMPUTERNAME_LENGTH + 3];
-    DWORD size = MAX_COMPUTERNAME_LENGTH + 3;
 
-    GetComputerName(compName, &size);
-    std::string connection_string(compName);
-    connection_string += " (VizEngine-0)";
+    ndi_deck::StreamManager stream_manager;
+    ndi_deck::OutputStream* out_stream = stream_manager.create_output_stream();
+    out_stream->start_stream();
+    getchar();
+    stream_manager.kill_all_streams();
+    std::cout << "Stream Killed successfully" << std::endl;
+    getchar();
 
-    receiver->connect(connection_string);
-    receiver->start();
-
-    InputLoopThrough(receiver);
     //std::thread outputRender(&InputLoopThrough, receiver);
 
     Discovery* discovery = new Discovery(&exit_flag);
@@ -84,7 +79,7 @@ int main()
     discovery->stop();
 
     int console_key = 0, choice = 0;
-
+    auto start = std::chrono::high_resolution_clock::now();
     while (!exit_flag)
     {
         if (((std::chrono::high_resolution_clock::now() - start) >= std::chrono::seconds(1)))
@@ -106,7 +101,7 @@ int main()
             case 's':
             {
 
-                receiver->stop();
+                //receiver->stop();
                 system("cls");
                 // show the most recent list...
                 discovery->showMeList();
@@ -120,9 +115,9 @@ int main()
                     _getch();
                 }
                 else {
-                    receiver->connect(s);
+                    //receiver->connect(s);
                 }
-                receiver->start();
+                //receiver->start();
                 std::cin.clear();
                 discovery->stop();
                 break;
@@ -142,7 +137,7 @@ int main()
     }
     delete discovery;
     delete video_out;
-    delete receiver;
+   // delete receiver;
     delete sender;
     delete card;
     //logger.join()
