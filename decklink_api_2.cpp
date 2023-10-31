@@ -159,7 +159,7 @@ DeckLinkCard::DeckLinkCard()
         unconfiguredPorts.push_back(port);
 
     }
-    std::cout << "Decklink Device Initialized successfully ..." << std::endl;
+    std::cout << "[info] Decklink Device Initialized successfully ..." << std::endl;
 }
 
 HRESULT DeckLinkCard::checkError(bool fatal)
@@ -1075,7 +1075,7 @@ void VideoFrameCallback::arrived(IDeckLinkVideoInputFrame* frame)
     }
     case bmdFormat8BitYUV:
     {
-        std::cout << "8-bit YUV received" << std::endl;
+        //std::cout << "8-bit YUV received" << std::endl;
         break;
     }
     case bmdFormat10BitRGB:

@@ -85,7 +85,7 @@ void OutputStream::init()
 				
 			}
 
-			dispatch_printf(printDispatchQueue_s, "Using output device: %s\n", getDeckLinkDisplayName(deckLink).c_str());
+			dispatch_printf(printDispatchQueue_s, "[info] Using output device: %s\n", getDeckLinkDisplayName(deckLink).c_str());
 		}
 	}
 
@@ -119,19 +119,19 @@ void OutputStream::start_stream()
 	std::mutex formatDescMutex;
 
 	if (kWaitForReferenceToLock)
-		dispatch_printf(printDispatchQueue_s, "Waiting for reference to lock...\n");
+		dispatch_printf(printDispatchQueue_s, "[info] Waiting for reference to lock...\n");
 
 	if (!deckLinkOutput->startPlayback(currentFormatDesc.displayMode, currentFormatDesc.is3D, currentFormatDesc.pixelFormat, kAudioSampleType, 1, kWaitForReferenceToLock))
 	{
 		std::lock_guard<std::mutex> lock(formatDescMutex);
 		if (!g_loopThroughSessionNotifier.isNotified() && formatDesc == currentFormatDesc)
 		{
-			fprintf(stderr, "Unable to enable output on the selected device\n");
+			fprintf(stderr, "[Error] ]Unable to enable output on the selected device\n");
 		}
 	}
 
 	printReferenceStatus(deckLinkOutput, printDispatchQueue_s);
-	dispatch_printf(printDispatchQueue_s, "Starting stream .... \n");
+	dispatch_printf(printDispatchQueue_s, "[info] Starting stream .... \n");
 
 	// start NDI input
 	receiver->start();
@@ -177,11 +177,11 @@ OutputStream* StreamManager::create_output_stream(int resolution)
 		unused_devices.erase(unused_devices.begin()); // remove device from used to track the devices we still have left.
 
 		streams.push_back(out_stream);
-		std::cout << "Stream Created Successfully" << std::endl;
+		std::cout << "[info] Stream Created Successfully" << std::endl;
 		return out_stream;
 
 	}catch (std::exception& e) {
-		std::cerr << "Unable to create any more streams, out of Decklink Ports" << std::endl;
+		std::cerr << "[Error] Unable to create any more streams, out of Decklink Ports" << std::endl;
 		return nullptr;
 	}
 }

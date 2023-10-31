@@ -65,7 +65,7 @@ int main()
     out_stream->start_stream();
     getchar();
     stream_manager.kill_all_streams();
-    std::cout << "Stream Killed successfully" << std::endl;
+    std::cout << "[info] Stream Killed successfully" << std::endl;
     getchar();
 
     clean_up();
