@@ -46,7 +46,6 @@ int main()
 
     Interface_Manager interface_manager;
     interface_manager.start_decklink();
-    //interface_manager.start_ndi();
 
     DeckLinkCard* card = new DeckLinkCard();
     DeckLinkInputPort* inputPort = card->SelectInputPort(0);
@@ -60,22 +59,6 @@ int main()
     NDI_Sender* sender = new NDI_Sender(&exit_flag, "");
     sender->subscribe_to_q(interface_manager.getNDIOutputQ());
     sender->start();
-
-  /*  NDI_Recv* receiver = new NDI_Recv(&exit_flag, 0);
-    receiver->subscribe_to_q(interface_manager.getNDIInputQ());
-    
-
-    TCHAR compName[MAX_COMPUTERNAME_LENGTH + 3];
-    DWORD size = MAX_COMPUTERNAME_LENGTH + 3;
-
-    GetComputerName(compName, &size);
-    std::string connection_string(compName);
-    connection_string += " (VizEngine-0)";
-
-    receiver->connect(connection_string);
-    receiver->start();
-
-    InputLoopThrough(receiver);*/
 
     ndi_deck::StreamManager stream_manager;
     ndi_deck::OutputStream* out_stream = stream_manager.create_output_stream();
