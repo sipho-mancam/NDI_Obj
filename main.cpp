@@ -64,7 +64,6 @@ int main()
     sender->subscribe_to_q(interface_manager.getNDIOutputQ());
     sender->start();
 
-
     setColor(0x78);
     box(1, 5, 10, 2);
     gotoxy(6, 2);
@@ -75,7 +74,7 @@ int main()
     printf(" 2. UHD");
 
     gotoxy(5, 4);
-    printf("Choice: ");
+    printf("Select: ");
 
     ndi_deck::StreamManager stream_manager;
     ndi_deck::OutputStream* out_stream = nullptr;
@@ -110,8 +109,6 @@ int main()
         return -1;
     }
         
-
-
     getchar();
     stream_manager.kill_all_streams();
     setColor(0x7a);
