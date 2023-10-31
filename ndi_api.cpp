@@ -2,6 +2,7 @@
 //
 
 #include "ndi_api.hpp"
+#include "console_control.hpp"
 
 void init()
 {
@@ -288,6 +289,7 @@ void NDI_Recv::connect(std::string s)
     if (!rec_instance)
         throw(NDI_exception("Failed to create receiver."));
     connected = true;
+    setColor(0x7a);
     std::cout << "[info] Connected ..." << std::endl;
 }
 

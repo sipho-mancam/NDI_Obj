@@ -2,11 +2,12 @@
 #include "interface_manager.hpp"
 #include "decklink_api.hpp"
 #include "streams.hpp"
-
+#include "console_control.hpp"
 
 #include <fstream>
 #include <iostream>
 #include <ctime>
+#include <stdio.h>
 
 static IDeckLinkOutput* outDevice;
 HRESULT InputLoopThrough(NDI_Recv* input_source);
@@ -41,6 +42,9 @@ void log_to_file()
 
 int main()
 {
+    setColor(0x7a);
+    clrscr();
+
     init();
     bool exit_flag = false, outputStarted = false;
 
@@ -60,15 +64,61 @@ int main()
     sender->subscribe_to_q(interface_manager.getNDIOutputQ());
     sender->start();
 
+
+    setColor(0x78);
+    box(1, 5, 10, 2);
+    gotoxy(6, 2);
+    printf(" 1. HD");
+
+    box(1, 17, 10, 2);
+    gotoxy(18, 2);
+    printf(" 2. UHD");
+
+    gotoxy(5, 4);
+    printf("Choice: ");
+
     ndi_deck::StreamManager stream_manager;
-    ndi_deck::OutputStream* out_stream = stream_manager.create_output_stream();
-    out_stream->start_stream();
+    ndi_deck::OutputStream* out_stream = nullptr;
+    int mode;
+    std::cin >> mode;
+
+    if (mode != 2)
+    {
+       out_stream = stream_manager.create_output_stream(ndi_deck::displayResoltion::HD);
+    }
+    else {
+        out_stream = stream_manager.create_output_stream(ndi_deck::displayResoltion::UHD);
+    }
+
+    if (out_stream) 
+    {
+        int offsetY = 2;
+        setColor(0x79);
+        gotoxy(5, 6+offsetY);
+        box(6+offsetY, 5,20, 2);
+        gotoxy(6, 7+offsetY);
+        printf(" Using %s", mode == 1 ? "HD1080i50" : "UHD2160p50");
+        gotoxy(0, 9 + offsetY);
+        out_stream->start_stream();
+        setColor(0x70);
+        getchar();
+    }else {
+        setColor(0x4f);
+        std::cout << "[Error] Could not obtain output stream ..." << std::endl;
+        setColor(0x2f);
+        std::cout << "[info] Exiting ...." << std::endl;
+        return -1;
+    }
+        
+
+
     getchar();
     stream_manager.kill_all_streams();
+    setColor(0x7a);
     std::cout << "[info] Stream Killed successfully" << std::endl;
-    getchar();
-
-    clean_up();
+    setColor(0x70);
+    return 0;
+    //clean_up();
 }
 
 

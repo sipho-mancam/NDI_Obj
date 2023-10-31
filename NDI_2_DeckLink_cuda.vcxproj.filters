@@ -73,6 +73,9 @@
     <ClCompile Include="DispatchQueue.cpp">
       <Filter>Source</Filter>
     </ClCompile>
+    <ClCompile Include="console_control.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="common.hpp">
@@ -136,6 +139,9 @@
       <Filter>HeaderFiles</Filter>
     </ClInclude>
     <ClInclude Include="input_output.hpp">
+      <Filter>HeaderFiles</Filter>
+    </ClInclude>
+    <ClInclude Include="console_control.hpp">
       <Filter>HeaderFiles</Filter>
     </ClInclude>
   </ItemGroup>

@@ -13,6 +13,7 @@
   <ItemGroup>
     <ClInclude Include="common.hpp" />
     <ClInclude Include="com_ptr.h" />
+    <ClInclude Include="console_control.hpp" />
     <ClInclude Include="decklinkAPI.hpp" />
     <ClInclude Include="DeckLinkAPI_h.h" />
     <ClInclude Include="DeckLinkDevice.h" />
@@ -34,6 +35,7 @@
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="console_control.cpp" />
     <ClCompile Include="DeckLinkAPI_i.c" />
     <ClCompile Include="DeckLinkDevice.cpp" />
     <ClCompile Include="DeckLinkOutputDevice.cpp" />

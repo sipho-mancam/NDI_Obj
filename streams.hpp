@@ -1,6 +1,7 @@
 #pragma once
 #include "input_output.hpp"
 #include "ndi_api.hpp"
+#include "console_control.hpp"
 
 namespace ndi_deck {
 	enum displayResoltion { HD, UHD };
