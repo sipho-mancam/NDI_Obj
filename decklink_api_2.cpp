@@ -444,8 +444,8 @@ bool DeckLinkOutputPort::waitForReference()
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
         std::cout << "Waiting for Gen lock" << std::endl;
-      /*  if ((std::chrono::high_resolution_clock::now() - start) >= std::chrono::seconds(5))
-            break;*/
+        if ((std::chrono::high_resolution_clock::now() - start) >= std::chrono::seconds(5))
+            break;
     }
 
     this->m_referenceLocked = false;
@@ -455,12 +455,16 @@ bool DeckLinkOutputPort::waitForReference()
 void DeckLinkOutputPort::run()
 {
     waitForReference(); // this will wait for gen_lock, before starting the playback.
- 
+
+    while (!frames_q->empty())
+        frames_q->pop();
+
+
     while (running)
     {
 
-        if (!m_referenceLocked)
-            std::cout << "Waiting for Gen lock" << std::endl;
+        //if (!m_referenceLocked)
+        //    std::cout << "Waiting for Gen lock" << std::endl;
         // if we are synchronized, wait for the flag .... or else ... just let it go.
         if ((_release_frames != nullptr && *_release_frames) || (!_release_frames))
         {
