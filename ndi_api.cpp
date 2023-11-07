@@ -131,6 +131,9 @@ void NDI_Recv::run()
     std::chrono::steady_clock::time_point start, end;
     BMDTimeValue stream_time = 0;
     BMDTimeValue frameDuration = 1000;
+    uint* key_packed = nullptr;
+    uchar* alpha_channel = nullptr;
+
 
     while (!(*exit) && running)
     {
@@ -175,7 +178,7 @@ void NDI_Recv::run()
                 // Video data
             case NDIlib_frame_type_video:
             {
-                IDeckLinkVideoFrame* videoFrame = Interface_Manager::convert_ndi_2_decklink_frame_s(&video_frame);
+                
 
 
                 if (alpha_channel)
@@ -184,6 +187,7 @@ void NDI_Recv::run()
                 get_alpha_channel(video_frame.xres, video_frame.yres, video_frame.p_data, &alpha_channel);
                 alpha_2_decklink_gpu(video_frame.xres, video_frame.yres, alpha_channel, &key_packed);
 
+                IDeckLinkVideoFrame* videoFrame = Interface_Manager::convert_ndi_2_decklink_frame_s(&video_frame);
 
                 IDeckLinkVideoFrame* keySignal = Interface_Manager::get_key_signal(&video_frame);
 
