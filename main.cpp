@@ -66,12 +66,15 @@ int main()
     printf(" 2. UHD");
 
     gotoxy(5, 4);
-    printf("Select: ");
+    printf("\n");
+    //printf("Select: \n"); // remove new line character for UHD selection
 
     ndi_deck::StreamManager stream_manager;
     ndi_deck::OutputStream* out_stream = nullptr;
     int mode;
-    std::cin >> mode;
+    //std::cin >> mode;
+
+    mode = 1;
 
     if (mode != 2)
     {

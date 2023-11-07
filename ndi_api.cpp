@@ -300,7 +300,7 @@ void NDI_Recv::connect(std::string s)
         throw(NDI_exception("Failed to create receiver."));
     connected = true;
     setColor(0x71);
-    std::cout << "[info] Connected ..." << std::endl;
+    std::cout << "[info] NDI Source Connected ..." << std::endl;
 }
 
 void NDI_Recv::subscribe_to_q(std::queue< NDIlib_video_frame_v2_t*>* qu)
