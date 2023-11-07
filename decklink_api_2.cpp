@@ -111,13 +111,13 @@ void VideoFrameObj::SetFrameData(void* fData, size_t s)
 {
     if (s == 0 || s > static_cast<size_t>(this->rowBytes) * this->height)
     {
-        this->data = fData;
-        //memcpy(this->data, fData, (static_cast<size_t>(this->rowBytes) * this->height));
+        //this->data = fData;
+        memcpy(this->data, fData, (static_cast<size_t>(this->rowBytes) * this->height));
         return;
     }
 
-    this->data = fData;
-    //memcpy(this->data, fData, s);
+    //this->data = fData;
+    memcpy(this->data, fData, s);
 }
 
 VideoFrameObj::VideoFrameObj(long w, long h, BMDPixelFormat pxFormat, BMDFrameFlags flgs, void* d)

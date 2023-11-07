@@ -220,7 +220,7 @@ void alpha_2_decklink_gpu(long width, long height, uchar* alpha_channel /*GPU Bu
 
 	size_t packedSize = (width / 2) * height * sizeof(uint);
 
-	assert(cudaSuccess == cudaMallocHost((void**)&cpuOut, packedSize));
+	cpuOut = (uint*) malloc(packedSize);
 	assert(cudaMalloc((void**)&gpuBuf_out, packedSize) == cudaSuccess);
 
 	alpha_2_yuyv_pack <<< grid, block >>> (

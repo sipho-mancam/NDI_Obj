@@ -54,6 +54,7 @@ public:
     void start_decklink();
 
     static IDeckLinkVideoFrame* convert_ndi_2_decklink_frame_s(NDIlib_video_frame_v2_t*);
+    static IDeckLinkVideoFrame* get_key_signal(NDIlib_video_frame_v2_t*);
 
     template <typename T>
     std::queue<T*>* getQRef(bool out = true); // the bool detects for ndi_queues

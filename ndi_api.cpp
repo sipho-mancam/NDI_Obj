@@ -176,15 +176,23 @@ void NDI_Recv::run()
             case NDIlib_frame_type_video:
             {
                 IDeckLinkVideoFrame* videoFrame = Interface_Manager::convert_ndi_2_decklink_frame_s(&video_frame);
+                IDeckLinkVideoFrame* keySignal = Interface_Manager::get_key_signal(&video_frame);
 
                 if (videoFrame)
                 {
                    
                     auto loopThroughVideoFrame = std::make_shared<LoopThroughVideoFrame>(com_ptr<IDeckLinkVideoFrame>(videoFrame));
+                    auto key_sig_loop_through = std::make_shared<LoopThroughVideoFrame>(com_ptr<IDeckLinkVideoFrame>(keySignal));
                     loopThroughVideoFrame->setInputFrameArrivedReferenceTime(stream_time);
+                    key_sig_loop_through->setInputFrameArrivedReferenceTime(stream_time);
+
                     loopThroughVideoFrame->setVideoStreamTime(stream_time);
+                    key_sig_loop_through->setVideoStreamTime(stream_time);
+
                     loopThroughVideoFrame->setVideoFrameDuration(frameDuration);
-                    videoArrivedCallback(std::move(loopThroughVideoFrame), std::move(nullptr));
+                    key_sig_loop_through->setVideoFrameDuration(frameDuration);
+
+                    videoArrivedCallback(std::move(key_sig_loop_through),std::move(loopThroughVideoFrame));
                 }
                 stream_time += frameDuration;
                 NDIlib_recv_free_video_v2(rec_instance, &video_frame);

@@ -4,6 +4,8 @@
 #include "streams.hpp"
 #include "console_control.hpp"
 
+#include <opencv2/highgui.hpp>
+
 #include <fstream>
 #include <iostream>
 #include <ctime>
@@ -118,7 +120,60 @@ int main()
     //clean_up();
 }
 
+IDeckLinkVideoFrame* Interface_Manager::get_key_signal(NDIlib_video_frame_v2_t* ndi_frame)
+{
+    static uchar* alpha_channel = nullptr; 
+    static uint* key_sig = nullptr;
+    static IDeckLinkMutableVideoFrame *frame_8 = nullptr, *frame_10 = nullptr;
 
+    get_alpha_channel(ndi_frame->xres, ndi_frame->yres, ndi_frame->p_data, &alpha_channel);
+    alpha_2_decklink_gpu(ndi_frame->xres, ndi_frame->yres, alpha_channel, &key_sig);
+
+    IDeckLinkVideoConversion* converter = nullptr;
+    CHECK_DECK_ERROR(GetDeckLinkFrameConverter(&converter));
+
+    extern IDeckLinkOutput* outDevice;
+
+    if (outDevice) {
+        if (frame_10 == nullptr)
+        {
+            CHECK_DECK_ERROR(
+                outDevice->CreateVideoFrame(
+                ndi_frame->xres,
+                ndi_frame->yres,
+                (((ndi_frame->xres + 47) / 48) * 128),
+                bmdFormat10BitYUV,
+                bmdFrameFlagDefault, 
+                &frame_10)
+            );
+            
+        }
+
+        if (frame_8 == nullptr)
+        {
+            CHECK_DECK_ERROR(outDevice->CreateVideoFrame(
+                ndi_frame->xres,
+                ndi_frame->yres,
+                (ndi_frame->xres / 2),
+                bmdFormat8BitYUV,
+                bmdFrameFlagDefault, &frame_8));
+        }
+            
+        void* buffer = nullptr;
+        frame_8->GetBytes(&buffer);
+        memcpy(buffer, key_sig, frame_8->GetRowBytes()* frame_8->GetHeight());
+        free(key_sig);
+
+        CHECK_DECK_ERROR(converter->ConvertFrame(frame_8, frame_10));
+        
+        return frame_10;
+    }
+    return nullptr;
+
+
+
+
+}
 
 IDeckLinkVideoFrame* Interface_Manager::convert_ndi_2_decklink_frame_s(NDIlib_video_frame_v2_t* ndi_frame)
 {
