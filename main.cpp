@@ -44,20 +44,13 @@ void log_to_file()
 
 int main()
 {
-    setColor(0x7a);
+    setColor(0x71);
     clrscr();
 
     init();
     bool exit_flag = false, outputStarted = false;
 
-    Interface_Manager interface_manager;
-    interface_manager.start_decklink();
-
     DeckLinkCard* card = new DeckLinkCard();
-    /*DeckLinkInputPort* inputPort = card->SelectInputPort(0);
-    assert(inputPort != nullptr);
-    inputPort->subscribe_2_input_q(interface_manager.getDeckLinkInputQ());
-    inputPort->startCapture();*/
     
     CameraOutputPort* video_out = card->SelectCamOutputPort(2, 0);
     outDevice = video_out->getOutputDevice();
@@ -90,7 +83,7 @@ int main()
 
     if (out_stream) 
     {
-        int offsetY = 2;
+        int offsetY = 3;
         setColor(0x79);
         gotoxy(5, 6+offsetY);
         box(6+offsetY, 5,20, 2);

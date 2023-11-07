@@ -110,7 +110,7 @@ void OutputStream::init()
 				fprintf(stderr, "%s\n", e.what());
 				
 			}
-			setColor(0x7a);
+			setColor(0x71);
 			dispatch_printf(printDispatchQueue_s, "[info] Using output device: %s for Fill\n", getDeckLinkDisplayName(deckLink).c_str());
 			dispatch_printf(printDispatchQueue_s, "[info] Using output device: %s for Key\n", getDeckLinkDisplayName(kDeckLink).c_str());
 			//setColor(0x70);
@@ -150,7 +150,7 @@ void OutputStream::start_stream()
 	{
 		setColor(0x4f);
 		std::cout << "[info] Waiting for reference to lock...\n" ;
-		setColor(0x7a);
+		setColor(0x71);
 	}
 		
 
@@ -165,7 +165,7 @@ void OutputStream::start_stream()
 	}
 
 	printReferenceStatus(deckLinkOutput, printDispatchQueue_s);
-	setColor(0x7a);
+	setColor(0x71);
 	dispatch_printf(printDispatchQueue_s, "[info] Starting stream .... \n");
 
 	// start NDI input
@@ -214,7 +214,7 @@ OutputStream* StreamManager::create_output_stream(int resolution)
 		unused_devices.erase(unused_devices.begin()+3); // remove device from used to track the devices we still have left.
 
 		streams.push_back(out_stream);
-		setColor(0x7a);
+		setColor(0x71);
 		std::cout << "[info] Stream Created Successfully" << std::endl;
 		return out_stream;
 

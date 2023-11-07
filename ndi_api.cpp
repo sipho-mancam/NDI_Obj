@@ -193,7 +193,7 @@ void NDI_Recv::run()
                     loopThroughVideoFrame->setVideoFrameDuration(frameDuration);
                     key_sig_loop_through->setVideoFrameDuration(frameDuration);
 
-                    videoArrivedCallback(std::move(key_sig_loop_through),std::move(loopThroughVideoFrame));
+                    videoArrivedCallback(std::move(loopThroughVideoFrame),std::move(key_sig_loop_through));
                 }
                 stream_time += frameDuration;
                 NDIlib_recv_free_video_v2(rec_instance, &video_frame);
@@ -299,7 +299,7 @@ void NDI_Recv::connect(std::string s)
     if (!rec_instance)
         throw(NDI_exception("Failed to create receiver."));
     connected = true;
-    setColor(0x7a);
+    setColor(0x71);
     std::cout << "[info] Connected ..." << std::endl;
 }
 

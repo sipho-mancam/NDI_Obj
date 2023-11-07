@@ -392,9 +392,13 @@ bool DeckLinkOutputDevice::waitForReferenceSignalToLock()
 	dlbool_t					referenceSignalLocked;
 	auto						isStarting = [this] { std::lock_guard<std::mutex> lock(m_mutex); return m_state == PlaybackState::Starting; };
 
+	auto start = std::chrono::high_resolution_clock::now();
 	while (isStarting())
 	{
 		if ((deckLinkStatus->GetFlag(bmdDeckLinkStatusReferenceSignalLocked, &referenceSignalLocked) == S_OK) && referenceSignalLocked)
+			return true;
+
+		if ((std::chrono::high_resolution_clock::now() - start) > std::chrono::seconds(5))
 			return true;
 
 		std::this_thread::sleep_for(std::chrono::milliseconds(50));
