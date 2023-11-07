@@ -54,17 +54,14 @@ int main()
     interface_manager.start_decklink();
 
     DeckLinkCard* card = new DeckLinkCard();
-    DeckLinkInputPort* inputPort = card->SelectInputPort(0);
+    /*DeckLinkInputPort* inputPort = card->SelectInputPort(0);
     assert(inputPort != nullptr);
     inputPort->subscribe_2_input_q(interface_manager.getDeckLinkInputQ());
-    inputPort->startCapture();
+    inputPort->startCapture();*/
     
     CameraOutputPort* video_out = card->SelectCamOutputPort(2, 0);
     outDevice = video_out->getOutputDevice();
     
-  /*  NDI_Sender* sender = new NDI_Sender(&exit_flag, "");
-    sender->subscribe_to_q(interface_manager.getNDIOutputQ());
-    sender->start();*/
 
     setColor(0x78);
     box(1, 5, 10, 2);
@@ -158,9 +155,7 @@ IDeckLinkVideoFrame* Interface_Manager::get_key_signal(NDIlib_video_frame_v2_t& 
         frame_8->GetBytes(&buffer);
         memcpy(buffer, data, ndi_frame.xres * 2 * ndi_frame.yres);
         CHECK_DECK_ERROR(converter->ConvertFrame(frame_8, frame_10));
-        //outDevice->DisplayVideoFrameSync(frame_8);
-
-        //free(data);
+        cudaFreeHost(data);
         return frame_10;
     }
     return nullptr;

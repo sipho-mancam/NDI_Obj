@@ -125,8 +125,6 @@ Discovery::~Discovery()
 
 void NDI_Recv::run()
 {
-    /* if (!frames)
-         frames = new std::queue<NDIlib_video_frame_v2_t*>();*/
     bool check_init = false;
     std::chrono::steady_clock::time_point start, end;
     BMDTimeValue stream_time = 0;
@@ -134,11 +132,8 @@ void NDI_Recv::run()
     uint* key_packed = nullptr;
     uchar* alpha_channel = nullptr;
 
-
     while (!(*exit) && running)
     {
-
-
         NDIlib_video_frame_v2_t video_frame;
         if (frames_synchronizer)
         {
@@ -159,7 +154,6 @@ void NDI_Recv::run()
                 loopThroughVideoFrame->setVideoStreamTime(stream_time);
                 loopThroughVideoFrame->setVideoFrameDuration(frameDuration);
                 //videoArrivedCallback(std::move(loopThroughVideoFrame), std::move(nullptr));
-                
             }
             stream_time += frameDuration;
             int frame_rate = video_frame.frame_rate_N / video_frame.frame_rate_D;
@@ -178,24 +172,15 @@ void NDI_Recv::run()
                 // Video data
             case NDIlib_frame_type_video:
             {
-                /*if (alpha_channel)
-                    cudaMemset(alpha_channel, 0, (video_frame.xres * video_frame.yres));*/
+                // we can optimize further here and reduce the copying, but for now, this will have to do.
                 get_alpha_channel(video_frame.xres, video_frame.yres, video_frame.p_data, &alpha_channel);
-                cv::Mat preview(video_frame.yres, video_frame.xres, CV_8UC1);
-                preview.data = alpha_channel;
-
-                cv::imshow("Preview Window", preview);
-                cv::waitKey(2);
-
                 alpha_2_decklink(video_frame.xres, video_frame.yres, alpha_channel, &key_packed);
-
+            
                 IDeckLinkVideoFrame* videoFrame = Interface_Manager::convert_ndi_2_decklink_frame_s(&video_frame);
                 IDeckLinkVideoFrame* keySignal = Interface_Manager::get_key_signal(video_frame, key_packed);
                 
-
                 if (videoFrame && keySignal)
                 {
-                   
                     auto loopThroughVideoFrame = std::make_shared<LoopThroughVideoFrame>(com_ptr<IDeckLinkVideoFrame>(videoFrame));
                     auto key_sig_loop_through = std::make_shared<LoopThroughVideoFrame>(com_ptr<IDeckLinkVideoFrame>(keySignal));
 
@@ -212,7 +197,7 @@ void NDI_Recv::run()
                 }
                 stream_time += frameDuration;
                 NDIlib_recv_free_video_v2(rec_instance, &video_frame);
-
+                cudaFreeHost(alpha_channel);
 
                 break;
             }
