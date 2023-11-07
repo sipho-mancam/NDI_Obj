@@ -120,16 +120,11 @@ int main()
     //clean_up();
 }
 
-IDeckLinkVideoFrame* Interface_Manager::get_key_signal(NDIlib_video_frame_v2_t* ndi_frame)
+IDeckLinkVideoFrame* Interface_Manager::get_key_signal(NDIlib_video_frame_v2_t& ndi_frame, uint *data)
 {
-    static uchar* alpha_channel = nullptr; 
-    static uint* key_sig = nullptr;
-    static IDeckLinkMutableVideoFrame *frame_8 = nullptr, *frame_10 = nullptr;
-
-    get_alpha_channel(ndi_frame->xres, ndi_frame->yres, ndi_frame->p_data, &alpha_channel);
-    alpha_2_decklink_gpu(ndi_frame->xres, ndi_frame->yres, alpha_channel, &key_sig);
-
+    static IDeckLinkMutableVideoFrame* frame_8 = nullptr, * frame_10 = nullptr;
     IDeckLinkVideoConversion* converter = nullptr;
+    static void* buffer = nullptr;
     CHECK_DECK_ERROR(GetDeckLinkFrameConverter(&converter));
 
     extern IDeckLinkOutput* outDevice;
@@ -139,33 +134,33 @@ IDeckLinkVideoFrame* Interface_Manager::get_key_signal(NDIlib_video_frame_v2_t* 
         {
             CHECK_DECK_ERROR(
                 outDevice->CreateVideoFrame(
-                ndi_frame->xres,
-                ndi_frame->yres,
-                (((ndi_frame->xres + 47) / 48) * 128),
+                ndi_frame.xres,
+                ndi_frame.yres,
+                (((ndi_frame.xres + 47) / 48) * 128),
                 bmdFormat10BitYUV,
                 bmdFrameFlagDefault, 
                 &frame_10)
-            );
-            
+            );   
         }
 
         if (frame_8 == nullptr)
         {
             CHECK_DECK_ERROR(outDevice->CreateVideoFrame(
-                ndi_frame->xres,
-                ndi_frame->yres,
-                (ndi_frame->xres / 2),
+                ndi_frame.xres,
+                ndi_frame.yres,
+                (ndi_frame.xres * 16/8),
                 bmdFormat8BitYUV,
-                bmdFrameFlagDefault, &frame_8));
+                bmdFrameFlagDefault, 
+                &frame_8)
+            );
         }
-            
-        void* buffer = nullptr;
-        frame_8->GetBytes(&buffer);
-        memcpy(buffer, key_sig, frame_8->GetRowBytes()* frame_8->GetHeight());
-        free(key_sig);
 
+        frame_8->GetBytes(&buffer);
+        memcpy(buffer, data, ndi_frame.xres * 2 * ndi_frame.yres);
         CHECK_DECK_ERROR(converter->ConvertFrame(frame_8, frame_10));
-        
+        //outDevice->DisplayVideoFrameSync(frame_8);
+
+        //free(data);
         return frame_10;
     }
     return nullptr;

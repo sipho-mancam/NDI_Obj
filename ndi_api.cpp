@@ -178,24 +178,27 @@ void NDI_Recv::run()
                 // Video data
             case NDIlib_frame_type_video:
             {
-                
-
-
-                if (alpha_channel)
-                    cudaMemset(alpha_channel, 0, (video_frame.xres * video_frame.yres));
-
+                /*if (alpha_channel)
+                    cudaMemset(alpha_channel, 0, (video_frame.xres * video_frame.yres));*/
                 get_alpha_channel(video_frame.xres, video_frame.yres, video_frame.p_data, &alpha_channel);
-                alpha_2_decklink_gpu(video_frame.xres, video_frame.yres, alpha_channel, &key_packed);
+                cv::Mat preview(video_frame.yres, video_frame.xres, CV_8UC1);
+                preview.data = alpha_channel;
+
+                cv::imshow("Preview Window", preview);
+                cv::waitKey(2);
+
+                alpha_2_decklink(video_frame.xres, video_frame.yres, alpha_channel, &key_packed);
 
                 IDeckLinkVideoFrame* videoFrame = Interface_Manager::convert_ndi_2_decklink_frame_s(&video_frame);
+                IDeckLinkVideoFrame* keySignal = Interface_Manager::get_key_signal(video_frame, key_packed);
+                
 
-                IDeckLinkVideoFrame* keySignal = Interface_Manager::get_key_signal(&video_frame);
-
-                if (videoFrame)
+                if (videoFrame && keySignal)
                 {
                    
                     auto loopThroughVideoFrame = std::make_shared<LoopThroughVideoFrame>(com_ptr<IDeckLinkVideoFrame>(videoFrame));
                     auto key_sig_loop_through = std::make_shared<LoopThroughVideoFrame>(com_ptr<IDeckLinkVideoFrame>(keySignal));
+
                     loopThroughVideoFrame->setInputFrameArrivedReferenceTime(stream_time);
                     key_sig_loop_through->setInputFrameArrivedReferenceTime(stream_time);
 

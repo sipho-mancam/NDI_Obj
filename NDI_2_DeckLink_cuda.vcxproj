@@ -91,13 +91,13 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;WIN64;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>C:\Users\SEB4VISION - VR4\Documents\GitHub\NDI_Obj;C:\Users\Chroma2\source\repos\NDI_2_DeckLink_cuda\NDI_2_DeckLink_cuda;C:\Program Files\NDI\NDI 5 SDK\Include;C:\Program Files\OpenCV unknown\include;C:\Users\SEB4VISION - VR4\Downloads\Tool Chain - Chroma Software\Blackmagic DeckLink SDK 12.7\Win\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\SEB4VISION - VR4\Documents\GitHub\NDI_Obj;C:\Users\Chroma2\source\repos\NDI_2_DeckLink_cuda\NDI_2_DeckLink_cuda;C:\Program Files\NDI\NDI 5 SDK\Include;C:\Program Files\OpenCV unknown\include;C:\Program Files\OpenCV x64\include;C:\Users\SEB4VISION - VR4\Downloads\Tool Chain - Chroma Software\Blackmagic DeckLink SDK 12.7\Win\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Console</SubSystem>
       <AdditionalDependencies>cudart_static.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;opencv_core480d.lib;opencv_highgui480d.lib;opencv_imgproc480d.lib;opencv_imgcodecs480d.lib;opencv_cudaarithm480d.lib;opencv_cudabgsegm480d.lib;opencv_cudacodec480d.lib;opencv_cudafilters480d.lib;opencv_cudaimgproc480d.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>C:\Program Files\NDI\NDI 5 SDK\Lib\x64;C:\Program Files\OpenCV unknown\x64\vc17\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>C:\Program Files\OpenCV x64\x64\vc17\lib;C:\Program Files\NDI\NDI 5 SDK\Lib\x64;C:\Program Files\OpenCV unknown\x64\vc17\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <CudaCompile>
       <TargetMachinePlatform>64</TargetMachinePlatform>
@@ -112,7 +112,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;WIN64;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>C:\Users\Chroma2\source\repos\NDI_2_DeckLink_cuda\NDI_2_DeckLink_cuda;C:\Program Files\NDI\NDI 5 SDK\Include;C:\opencv\opencv\build\include;C:\Users\Chroma2\Downloads\Blackmagic DeckLink SDK 12.5.1\Win\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Program Files\OpenCV x64\include;C:\Users\Chroma2\source\repos\NDI_2_DeckLink_cuda\NDI_2_DeckLink_cuda;C:\Program Files\NDI\NDI 5 SDK\Include;C:\opencv\opencv\build\include;C:\Users\Chroma2\Downloads\Blackmagic DeckLink SDK 12.5.1\Win\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -120,7 +120,7 @@
       <OptimizeReferences>true</OptimizeReferences>
       <SubSystem>Console</SubSystem>
       <AdditionalDependencies>cudart_static.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;opencv_world453.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>C:\Program Files\NDI\NDI 5 SDK\Lib\x64;C:\opencv\opencv\build\x64\vc15\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>C:\Program Files\OpenCV x64\x64\vc17\lib;C:\Program Files\NDI\NDI 5 SDK\Lib\x64;C:\opencv\opencv\build\x64\vc15\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <CudaCompile>
       <TargetMachinePlatform>64</TargetMachinePlatform>
