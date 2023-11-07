@@ -155,7 +155,7 @@ void NDI_Recv::run()
                 loopThroughVideoFrame->setInputFrameArrivedReferenceTime(stream_time);
                 loopThroughVideoFrame->setVideoStreamTime(stream_time);
                 loopThroughVideoFrame->setVideoFrameDuration(frameDuration);
-                videoArrivedCallback(std::move(loopThroughVideoFrame));
+                //videoArrivedCallback(std::move(loopThroughVideoFrame), std::move(nullptr));
                 
             }
             stream_time += frameDuration;
@@ -179,11 +179,12 @@ void NDI_Recv::run()
 
                 if (videoFrame)
                 {
+                   
                     auto loopThroughVideoFrame = std::make_shared<LoopThroughVideoFrame>(com_ptr<IDeckLinkVideoFrame>(videoFrame));
                     loopThroughVideoFrame->setInputFrameArrivedReferenceTime(stream_time);
                     loopThroughVideoFrame->setVideoStreamTime(stream_time);
                     loopThroughVideoFrame->setVideoFrameDuration(frameDuration);
-                    videoArrivedCallback(std::move(loopThroughVideoFrame));
+                    videoArrivedCallback(std::move(loopThroughVideoFrame), std::move(nullptr));
                 }
                 stream_time += frameDuration;
                 NDIlib_recv_free_video_v2(rec_instance, &video_frame);

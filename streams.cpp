@@ -3,7 +3,7 @@
 
 using namespace ndi_deck;
 
-OutputStream::OutputStream(com_ptr<IDeckLink>& device, int res, int id)
+OutputStream::OutputStream(com_ptr<IDeckLink>& device,  int res, int id)
 	: Stream(),
 	kInitialPixelFormat(bmdFormat10BitYUV),
 	kWaitForReferenceToLock(true),
@@ -27,6 +27,31 @@ OutputStream::OutputStream(com_ptr<IDeckLink>& device, int res, int id)
 
 }
 
+
+OutputStream::OutputStream(com_ptr<IDeckLink>& device,com_ptr<IDeckLink>& kDevice, int res, int id)
+	: Stream(),
+	kInitialPixelFormat(bmdFormat10BitYUV),
+	kWaitForReferenceToLock(true),
+	exitFlag(false),
+	kOutputVideoPreroll(1),
+	kVideoDispatcherThreadCount(3),
+	deckLink(device.get()),
+	kDeckLink(kDevice.get()),
+	videoDispatchQueue_s(kVideoDispatcherThreadCount),
+	receiver(nullptr),
+	printDispatchQueue_s(1),
+	kAudioSampleType(bmdAudioSampleType32bitInteger)
+{
+	if (res == displayResoltion::HD)
+		kInitialDisplayMode = bmdModeHD1080i50;
+	else if (res == displayResoltion::UHD)
+		kInitialDisplayMode = bmdMode4K2160p50;
+
+	currentFormatDesc = { kInitialDisplayMode, false, kInitialPixelFormat };
+	stream_id = id;
+	init();
+
+}
 
 void OutputStream::init()
 {
@@ -78,6 +103,7 @@ void OutputStream::init()
 			try
 			{
 				deckLinkOutput = make_com_ptr<DeckLinkOutputDevice>(deckLink, prerollFrames);
+				deckLinkOutput2 = make_com_ptr<DeckLinkOutputDevice>(kDeckLink, prerollFrames); // create second device for the key.
 			}
 			catch (const std::exception& e)
 			{
@@ -85,12 +111,13 @@ void OutputStream::init()
 				
 			}
 			setColor(0x7a);
-			dispatch_printf(printDispatchQueue_s, "[info] Using output device: %s\n", getDeckLinkDisplayName(deckLink).c_str());
+			dispatch_printf(printDispatchQueue_s, "[info] Using output device: %s for Fill\n", getDeckLinkDisplayName(deckLink).c_str());
+			dispatch_printf(printDispatchQueue_s, "[info] Using output device: %s for Key\n", getDeckLinkDisplayName(kDeckLink).c_str());
 			//setColor(0x70);
 		}
 	}
 
-	if (!deckLinkOutput)
+	if (!deckLinkOutput || !deckLinkOutput2)
 	{
 		fprintf(stderr, "Unable to find both active input and output devices\n");
 		//return E_FAIL;
@@ -108,7 +135,7 @@ void OutputStream::init()
 
 	receiver->connect(connection_string);
 	// Register Input Callbacks
-	receiver->onVideoInputArrived([&](std::shared_ptr<LoopThroughVideoFrame> videoFrame) { videoDispatchQueue_s.dispatch(processVideo, videoFrame, deckLinkOutput); });
+	receiver->onVideoInputArrived([&](std::shared_ptr<LoopThroughVideoFrame> videoFrame, std::shared_ptr<LoopThroughVideoFrame> keySignal) { videoDispatchQueue_s.dispatch(processVideo2, videoFrame, keySignal, deckLinkOutput, deckLinkOutput2); });
 	// Register output callbacks
 	deckLinkOutput->onScheduledFrameCompleted([&](std::shared_ptr<LoopThroughVideoFrame> videoFrame) { updateCompletedFrameLatency(videoFrame, std::ref(printDispatchQueue_s)); });
 
@@ -127,7 +154,8 @@ void OutputStream::start_stream()
 	}
 		
 
-	if (!deckLinkOutput->startPlayback(currentFormatDesc.displayMode, currentFormatDesc.is3D, currentFormatDesc.pixelFormat, kAudioSampleType, 1, kWaitForReferenceToLock))
+	if (!deckLinkOutput->startPlayback(currentFormatDesc.displayMode, currentFormatDesc.is3D, currentFormatDesc.pixelFormat, kAudioSampleType, 1, kWaitForReferenceToLock)
+		|| !deckLinkOutput2->startPlayback(currentFormatDesc.displayMode, currentFormatDesc.is3D, currentFormatDesc.pixelFormat, kAudioSampleType, 1, kWaitForReferenceToLock))
 	{
 		std::lock_guard<std::mutex> lock(formatDescMutex);
 		if (!g_loopThroughSessionNotifier.isNotified() && formatDesc == currentFormatDesc)
@@ -177,11 +205,13 @@ Stream* StreamManager::create_input_stream(int resolution)
 OutputStream* StreamManager::create_output_stream(int resolution)
 {
 	try {
-
-		OutputStream* out_stream = new OutputStream(unused_devices[3], resolution);
+		//std::cout << unused_devices.size() << std::endl;
+		OutputStream* out_stream = new OutputStream(unused_devices[3], unused_devices[1], resolution);
 		com_ptr<IDeckLink> dev = unused_devices[3];
 		used_devices.push_back(dev);
-		unused_devices.erase(unused_devices.begin()); // remove device from used to track the devices we still have left.
+		dev = unused_devices[2];
+		used_devices.push_back(dev);
+		unused_devices.erase(unused_devices.begin()+3); // remove device from used to track the devices we still have left.
 
 		streams.push_back(out_stream);
 		setColor(0x7a);

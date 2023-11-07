@@ -120,7 +120,7 @@ protected:
 
     NDIlib_video_frame_v2_t* persFrame;
 
-    using VideoInputArrivedCallback = std::function<void(std::shared_ptr<LoopThroughVideoFrame>)>;
+    using VideoInputArrivedCallback = std::function<void(std::shared_ptr<LoopThroughVideoFrame>, std::shared_ptr<LoopThroughVideoFrame>)>;
     VideoInputArrivedCallback videoArrivedCallback;
 
     void run() override;

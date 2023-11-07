@@ -116,9 +116,9 @@ struct FormatDescription
 bool operator==(const FormatDescription& desc1, const FormatDescription& desc2);
 bool operator!=(const FormatDescription& desc1, const FormatDescription& desc2);
 
-template<typename... Args>
-void dispatch_printf(DispatchQueue& dispatchQueue, const char* format, Args... args);
+
 void processVideo(std::shared_ptr<LoopThroughVideoFrame>& videoFrame, com_ptr<DeckLinkOutputDevice>& deckLinkOutput);
+void processVideo2(std::shared_ptr<LoopThroughVideoFrame>& videoFrame, std::shared_ptr<LoopThroughVideoFrame>& kSig, com_ptr<DeckLinkOutputDevice>& deckLinkOutput, com_ptr<DeckLinkOutputDevice>& deckLinkOutput2);
 std::string getDeckLinkDisplayName(com_ptr<IDeckLink> deckLink);
 void printDroppedCaptureFrame(BMDTimeValue streamTime, BMDTimeValue frameDuration, DispatchQueue& printDispatchQueue);
 void printOutputCompletionResult(std::shared_ptr<LoopThroughVideoFrame> completedFrame, DispatchQueue& printDispatchQueue);
@@ -126,3 +126,7 @@ void updateCompletedFrameLatency(std::shared_ptr<LoopThroughVideoFrame> complete
 void printRollingAverage(DispatchQueue& printDispatchQueue);
 void printOutputSummary(DispatchQueue& printDispatchQueue);
 void printReferenceStatus(com_ptr<DeckLinkOutputDevice>& deckLinkOutput, DispatchQueue& printDispatchQueue);
+
+
+template<typename... Args>
+void dispatch_printf(DispatchQueue& dispatchQueue, const char* format, Args... args);

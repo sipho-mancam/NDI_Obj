@@ -194,24 +194,44 @@ bool DeckLinkOutputDevice::startPlayback(BMDDisplayMode displayMode, bool enable
 
 	if ((m_deckLinkOutput->DoesSupportVideoMode(bmdVideoConnectionUnspecified, displayMode, pixelFormat, bmdNoVideoOutputConversion, supportedVideoModeFlags, nullptr, &displayModeSupported) != S_OK) ||
 		!displayModeSupported)
+	{
+		std::cout << "Does not support video Mode" << std::endl;
 		return false;
+	}
+		
 
 	if (m_deckLinkOutput->GetDisplayMode(displayMode, deckLinkDisplayMode.releaseAndGetAddressOf()) != S_OK)
+	{
+		std::cout << "Could not get Display Mode" << std::endl;
 		return false;
+	}
+		
 
 	if (deckLinkDisplayMode->GetFrameRate(&m_frameDuration, &m_frameTimescale) != S_OK)
+	{
+		std::cout << "Could not get Frame Rate" << std::endl;
 		return false;
+	}
+		
 	
 	if (enable3D)
 		outputFlags = (BMDVideoOutputFlags)(outputFlags | bmdVideoOutputDualStream3D);
 
 	// Reference DeckLinkOutputDevice delegate callbacks
 	if (m_deckLinkOutput->SetScheduledFrameCompletionCallback(this) != S_OK)
+	{
+		std::cout << "Could not schedule frame Callback" << std::endl;
 		return false;
+	}
+		
 
 	
-	if (m_deckLinkOutput->EnableVideoOutput(displayMode, outputFlags) != S_OK)
+	if (m_deckLinkOutput->EnableVideoOutput(displayMode, bmdVideoOutputFlagDefault) != S_OK)
+	{
+		std::cout << "Could not enable video output" << std::endl;
 		return false;
+	}
+		
 
 	if (requireReferenceLocked)
 	{
@@ -228,7 +248,7 @@ bool DeckLinkOutputDevice::startPlayback(BMDDisplayMode displayMode, bool enable
 		std::lock_guard<std::mutex> lock(m_mutex);
 		m_state = PlaybackState::Prerolling;
 	}
-
+	
 	return true;
 }
 

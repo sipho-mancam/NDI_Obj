@@ -27,7 +27,10 @@ namespace ndi_deck {
 		int kOutputVideoPreroll;
 		int kVideoDispatcherThreadCount;
 		com_ptr<IDeckLink>					deckLink;
+		com_ptr<IDeckLink>					kDeckLink;
 		com_ptr<DeckLinkOutputDevice>		deckLinkOutput;
+		com_ptr<DeckLinkOutputDevice>		deckLinkOutput2;
+
 		DispatchQueue 						videoDispatchQueue_s;
 		NDI_Recv* receiver;
 		FormatDescription formatDesc, currentFormatDesc;
@@ -38,6 +41,7 @@ namespace ndi_deck {
 
 	public:
 		OutputStream(com_ptr<IDeckLink>& device, int res, int id=0);
+		OutputStream(com_ptr<IDeckLink>& device,com_ptr<IDeckLink>&dev2, int res, int id = 0);
 		void init() override;
 		void start_stream() override;
 		void stop_stream() override;

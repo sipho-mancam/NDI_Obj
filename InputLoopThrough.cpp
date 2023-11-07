@@ -306,6 +306,17 @@ void processVideo(std::shared_ptr<LoopThroughVideoFrame>& videoFrame, com_ptr<De
 	deckLinkOutput->scheduleVideoFrame(std::move(videoFrame));
 }
 
+void processVideo2(std::shared_ptr<LoopThroughVideoFrame>& videoFrame, std::shared_ptr<LoopThroughVideoFrame>& keySignal, com_ptr<DeckLinkOutputDevice>& deckLinkOutput, com_ptr<DeckLinkOutputDevice>& kDeckLinkOutput)
+{
+	// Check playback is active, if it is inactive, it is likely that the incoming display mode is not supported by output
+	if (!deckLinkOutput->isPlaybackActive() || !kDeckLinkOutput->isPlaybackActive())
+		return;
+
+	// At end of function, remember to queue your output frame
+	deckLinkOutput->scheduleVideoFrame(std::move(videoFrame));
+	kDeckLinkOutput->scheduleVideoFrame(std::move(keySignal));
+}
+
 
 std::string getDeckLinkDisplayName(com_ptr<IDeckLink> deckLink)
 {
@@ -497,7 +508,7 @@ void printReferenceStatus(com_ptr<DeckLinkOutputDevice>& deckLinkOutput, Dispatc
 		dispatch_printf(printDispatchQueue, "Warning: Reference signal not locked, this will result in an indeterminate latency between runs.\n");
 	}
 }
-
+//
 HRESULT InputLoopThrough(NDI_Recv* input_source)
 {
 	HRESULT								result = S_OK;
@@ -505,6 +516,7 @@ HRESULT InputLoopThrough(NDI_Recv* input_source)
 	com_ptr<IDeckLinkIterator>			deckLinkIterator;
 	com_ptr<IDeckLink>					deckLink;
 	com_ptr<DeckLinkOutputDevice>		deckLinkOutput;
+	com_ptr<DeckLinkOutputDevice>		deckLinkOutput2;
 
 	DispatchQueue 						videoDispatchQueue(kVideoDispatcherThreadCount);
 	//DispatchQueue 						audioDispatchQueue(kAudioDispatcherThreadCount);
@@ -614,7 +626,7 @@ HRESULT InputLoopThrough(NDI_Recv* input_source)
 		}
 
 		// Register Input Callbacks
-		input_source->onVideoInputArrived([&](std::shared_ptr<LoopThroughVideoFrame> videoFrame) { videoDispatchQueue.dispatch(processVideo, videoFrame, deckLinkOutput); });
+		input_source->onVideoInputArrived([&](std::shared_ptr<LoopThroughVideoFrame> videoFrame, std::shared_ptr<LoopThroughVideoFrame> kSig) { videoDispatchQueue.dispatch(processVideo2, videoFrame, kSig, deckLinkOutput, deckLinkOutput2); });
 		// Register output callbacks
 		deckLinkOutput->onScheduledFrameCompleted([&](std::shared_ptr<LoopThroughVideoFrame> videoFrame) { updateCompletedFrameLatency(videoFrame, std::ref(printDispatchQueue)); });
 	
