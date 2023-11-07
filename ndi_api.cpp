@@ -176,6 +176,15 @@ void NDI_Recv::run()
             case NDIlib_frame_type_video:
             {
                 IDeckLinkVideoFrame* videoFrame = Interface_Manager::convert_ndi_2_decklink_frame_s(&video_frame);
+
+
+                if (alpha_channel)
+                    cudaMemset(alpha_channel, 0, (video_frame.xres * video_frame.yres));
+
+                get_alpha_channel(video_frame.xres, video_frame.yres, video_frame.p_data, &alpha_channel);
+                alpha_2_decklink_gpu(video_frame.xres, video_frame.yres, alpha_channel, &key_packed);
+
+
                 IDeckLinkVideoFrame* keySignal = Interface_Manager::get_key_signal(&video_frame);
 
                 if (videoFrame)

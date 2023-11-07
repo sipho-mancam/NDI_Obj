@@ -62,9 +62,9 @@ int main()
     CameraOutputPort* video_out = card->SelectCamOutputPort(2, 0);
     outDevice = video_out->getOutputDevice();
     
-    NDI_Sender* sender = new NDI_Sender(&exit_flag, "");
+  /*  NDI_Sender* sender = new NDI_Sender(&exit_flag, "");
     sender->subscribe_to_q(interface_manager.getNDIOutputQ());
-    sender->start();
+    sender->start();*/
 
     setColor(0x78);
     box(1, 5, 10, 2);
