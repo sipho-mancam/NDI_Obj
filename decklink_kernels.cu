@@ -179,14 +179,14 @@ void alpha_2_decklink(long width, long height, uchar *alpha_channel /*Host buffe
 
 	size_t packedSize = (width / 2) * height * sizeof(uint);
 
-	assert(cudaSuccess == cudaMallocHost((void**)&pinnedBuf, width * height*sizeof(uchar)));
-	assert(cudaSuccess == cudaMallocHost((void**)&cpuOut, packedSize));
+	CHECK_CUDA_ERROR(cudaMallocHost((void**)&pinnedBuf, width * height*sizeof(uchar)));
+	CHECK_CUDA_ERROR(cudaMallocHost((void**)&cpuOut, packedSize));
 
 	memcpy(pinnedBuf, alpha_channel, width*height); // single channel copy
 
-	assert(cudaSuccess == cudaMalloc((void**)&in_gpuBuf, width * height));
-	assert(cudaSuccess == cudaMemcpy((void*)in_gpuBuf, (void*)pinnedBuf, width * height, cudaMemcpyHostToDevice));
-	assert(cudaMalloc((void**)&gpuBuf_out, packedSize) == cudaSuccess);
+	CHECK_CUDA_ERROR(cudaMalloc((void**)&in_gpuBuf, width * height));
+	CHECK_CUDA_ERROR(cudaMemcpy((void*)in_gpuBuf, (void*)pinnedBuf, width * height, cudaMemcpyHostToDevice));
+	CHECK_CUDA_ERROR(cudaMalloc((void**)&gpuBuf_out, packedSize));
 	
 	alpha_2_yuyv_pack <<< grid, block >>> (
 		in_gpuBuf,
@@ -195,11 +195,11 @@ void alpha_2_decklink(long width, long height, uchar *alpha_channel /*Host buffe
 		);
 
 	cudaStatus = cudaGetLastError();
-	assert(cudaStatus == cudaSuccess);
-	assert(cudaSuccess == cudaDeviceSynchronize());
+	CHECK_CUDA_ERROR(cudaSuccess);
+	CHECK_CUDA_ERROR(cudaDeviceSynchronize());
 
 	cudaStatus = cudaMemcpy(cpuOut, gpuBuf_out, packedSize, cudaMemcpyDeviceToHost);
-	assert(cudaStatus == cudaSuccess);
+	CHECK_CUDA_ERROR(cudaSuccess);
 	*output = cpuOut;
 
 	cudaFreeHost(pinnedBuf);
@@ -221,7 +221,7 @@ void alpha_2_decklink_gpu(long width, long height, uchar* alpha_channel /*GPU Bu
 	size_t packedSize = (width / 2) * height * sizeof(uint);
 
 	cpuOut = (uint*) malloc(packedSize);
-	assert(cudaMalloc((void**)&gpuBuf_out, packedSize) == cudaSuccess);
+	CHECK_CUDA_ERROR(cudaMalloc((void**)&gpuBuf_out, packedSize) == cudaSuccess);
 
 	alpha_2_yuyv_pack <<< grid, block >>> (
 		alpha_channel,
@@ -230,11 +230,11 @@ void alpha_2_decklink_gpu(long width, long height, uchar* alpha_channel /*GPU Bu
 		);
 
 	cudaStatus = cudaGetLastError();
-	assert(cudaStatus == cudaSuccess);
-	assert(cudaSuccess == cudaDeviceSynchronize());
+	CHECK_CUDA_ERROR(cudaSuccess);
+	CHECK_CUDA_ERROR(cudaDeviceSynchronize());
 
 	cudaStatus = cudaMemcpy(cpuOut, gpuBuf_out, packedSize, cudaMemcpyDeviceToHost);
-	assert(cudaStatus == cudaSuccess);
+	CHECK_CUDA_ERROR(cudaStatus);
 
 	*output = cpuOut;
 
@@ -266,41 +266,80 @@ __global__ void alpha_2_yuyv_pack(uchar* source, uint* dst, size_t width, size_t
 
 }
 
+//uchar* get_alpha_channel(long width, long height, uchar* bgra, uchar** alpha_out)
+//{
+//	cudaError_t cudaStatus;
+//	const dim3 block(16, 16); // 256 threads per block..
+//	const dim3 grid(width / block.x, height / block.y);
+//
+//	uchar * in_gpu_buf; // bgra pinned and gpu buffers
+//	uchar* pinned_alpha, *out_alpha;
+//
+//	size_t bgra_size = width * height * 4;
+//	size_t alpha_size = width * height * 1;
+//
+//	assert(cudaSuccess == cudaMalloc((void**)&in_gpu_buf, bgra_size));
+//	assert(cudaSuccess == cudaMemcpy(in_gpu_buf, bgra, bgra_size, cudaMemcpyHostToDevice));
+//	// BGRA data is now in device memory. ...
+//	assert(cudaSuccess == cudaMalloc((void**)&out_alpha, alpha_size));
+//
+//	bgra_2_alpha <<<grid, block >>> (
+//		in_gpu_buf,
+//		out_alpha,
+//		width, height
+//		);
+//
+//	cudaStatus = cudaGetLastError();
+//	assert(cudaStatus == cudaSuccess);
+//	assert(cudaSuccess == cudaDeviceSynchronize());
+//
+//	assert(cudaSuccess == cudaMallocHost((void**)&pinned_alpha, alpha_size));
+//	assert(cudaSuccess == cudaMemcpy(pinned_alpha, out_alpha, alpha_size, cudaMemcpyDeviceToHost));
+//
+//	*alpha_out = pinned_alpha;
+//
+//	cudaFree(in_gpu_buf);
+//	cudaFree(out_alpha);
+//	return pinned_alpha;
+//}
+
 void get_alpha_channel(long width, long height, uchar* bgra, uchar** alpha_out)
 {
 	cudaError_t cudaStatus;
 	const dim3 block(16, 16); // 256 threads per block..
 	const dim3 grid(width / block.x, height / block.y);
 
-	uchar * in_gpu_buf; // bgra pinned and gpu buffers
-	uchar* pinned_alpha, *out_alpha;
+	uchar* in_gpu_buf; // bgra pinned and gpu buffers
+	uchar* pinned_alpha, * out_alpha;
 
 	size_t bgra_size = width * height * 4;
 	size_t alpha_size = width * height * 1;
 
-	assert(cudaSuccess == cudaMalloc((void**)&in_gpu_buf, bgra_size));
-	assert(cudaSuccess == cudaMemcpy(in_gpu_buf, bgra, bgra_size, cudaMemcpyHostToDevice));
+	CHECK_CUDA_ERROR( cudaMalloc((void**)&in_gpu_buf, bgra_size));
+	CHECK_CUDA_ERROR(cudaMemcpy(in_gpu_buf, bgra, bgra_size, cudaMemcpyHostToDevice));
 	// BGRA data is now in device memory. ...
-	assert(cudaSuccess == cudaMalloc((void**)&out_alpha, alpha_size));
+	CHECK_CUDA_ERROR(cudaMalloc((void**)&out_alpha, alpha_size));
 
-	bgra_2_alpha <<<grid, block >>> (
+	bgra_2_alpha << <grid, block >> > (
 		in_gpu_buf,
 		out_alpha,
 		width, height
 		);
 
 	cudaStatus = cudaGetLastError();
-	assert(cudaStatus == cudaSuccess);
-	assert(cudaSuccess == cudaDeviceSynchronize());
+	CHECK_CUDA_ERROR(cudaStatus );
+	CHECK_CUDA_ERROR(cudaDeviceSynchronize());
 
-	assert(cudaSuccess == cudaMallocHost((void**)&pinned_alpha, alpha_size));
-	assert(cudaSuccess == cudaMemcpy(pinned_alpha, out_alpha, alpha_size, cudaMemcpyDeviceToHost));
+	CHECK_CUDA_ERROR(cudaMallocHost((void**)&pinned_alpha, alpha_size));
+	CHECK_CUDA_ERROR(cudaMemcpy(pinned_alpha, out_alpha, alpha_size, cudaMemcpyDeviceToHost));
 
 	*alpha_out = pinned_alpha;
 
 	cudaFree(in_gpu_buf);
 	cudaFree(out_alpha);
+	
 }
+
 
 
 void get_alpha_channel_gpu(long width, long height, uchar* bgra /*GPU buffer*/, uchar** alpha_out)

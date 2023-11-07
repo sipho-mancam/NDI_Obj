@@ -175,6 +175,8 @@ void NDI_Recv::run()
                 // we can optimize further here and reduce the copying, but for now, this will have to do.
                 get_alpha_channel(video_frame.xres, video_frame.yres, video_frame.p_data, &alpha_channel);
                 alpha_2_decklink(video_frame.xres, video_frame.yres, alpha_channel, &key_packed);
+
+                //std::cout<<"I execute" <<std::endl;
             
                 IDeckLinkVideoFrame* videoFrame = Interface_Manager::convert_ndi_2_decklink_frame_s(&video_frame);
                 IDeckLinkVideoFrame* keySignal = Interface_Manager::get_key_signal(video_frame, key_packed);

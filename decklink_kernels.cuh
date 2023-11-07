@@ -4,6 +4,20 @@
 #include "device_launch_parameters.h"
 #include <opencv2/opencv.hpp>
 
+#define CHECK_DECK_ERROR(result) \
+    if(result != S_OK) \
+    {\
+        std::cout<< "There's a decklink Error at: "<< __FILE__ << " : "<<__LINE__ <<std::endl; \
+        assert(result == S_OK); \
+    }\
+
+#define CHECK_CUDA_ERROR(result) \
+    if(result != cudaSuccess) \
+    { \
+        std::cout<< "There's a cuda Error at: "<< __FILE__ << " : "<<__LINE__ <<std::endl; \
+        assert(result == cudaSuccess);\
+    }\
+
 // host launchers ...
 void alpha_2_decklink(long width, long height, uchar* alpha_channel /*Host buffer*/, uint** output /*Host buffer*/);
 void get_alpha_channel(long width, long height, uchar* bgra, uchar** alpha_out);
