@@ -174,7 +174,7 @@ void NDI_Recv::run()
             {
                 // we can optimize further here and reduce the copying, but for now, this will have to do.
                 get_alpha_channel(video_frame.xres, video_frame.yres, video_frame.p_data, &alpha_channel);
-                alpha_2_decklink(video_frame.xres, video_frame.yres, alpha_channel, &key_packed);
+                alpha_2_decklink_gpu(video_frame.xres, video_frame.yres, alpha_channel, &key_packed);
 
                 //std::cout<<"I execute" <<std::endl;
             

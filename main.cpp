@@ -46,16 +46,12 @@ int main()
 {
     setColor(0x71);
     clrscr();
-
     init();
     bool exit_flag = false, outputStarted = false;
-
     DeckLinkCard* card = new DeckLinkCard();
-    
     CameraOutputPort* video_out = card->SelectCamOutputPort(2, 0);
     outDevice = video_out->getOutputDevice();
     
-
     setColor(0x78);
     box(1, 5, 10, 2);
     gotoxy(6, 2);
@@ -110,7 +106,6 @@ int main()
     std::cout << "[info] Stream Killed successfully" << std::endl;
     setColor(0x70);
     return 0;
-    //clean_up();
 }
 
 IDeckLinkVideoFrame* Interface_Manager::get_key_signal(NDIlib_video_frame_v2_t& ndi_frame, uint *data)
@@ -151,7 +146,7 @@ IDeckLinkVideoFrame* Interface_Manager::get_key_signal(NDIlib_video_frame_v2_t& 
         frame_8->GetBytes(&buffer);
         memcpy(buffer, data, ndi_frame.xres * 2 * ndi_frame.yres);
         CHECK_DECK_ERROR(converter->ConvertFrame(frame_8, frame_10));
-        cudaFreeHost(data);
+        free(data);
         return frame_10;
     }
     return nullptr;

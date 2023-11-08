@@ -15,6 +15,7 @@
     if(result != cudaSuccess) \
     { \
         std::cout<< "There's a cuda Error at: "<< __FILE__ << " : "<<__LINE__ <<std::endl; \
+        std::cout << "[Error]: " << cudaGetErrorString(result) <<std::endl;\
         assert(result == cudaSuccess);\
     }\
 
