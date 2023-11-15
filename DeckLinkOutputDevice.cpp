@@ -123,9 +123,10 @@ HRESULT	DeckLinkOutputDevice::ScheduledFrameCompleted(IDeckLinkVideoFrame* compl
 		std::cout << "Frame Dropped" << std::endl;
 		break;
 	case bmdOutputFrameDisplayedLate:
-		std::cout << "Frame Displayed Late" << std::endl;
+		/*std::cout << "Frame Displayed Late" << std::endl;
 		if (m_deckLinkOutput->GetFrameCompletionReferenceTimestamp(completedFrame, ReferenceTime::kTimescale, &frameCompletionTimestamp) == S_OK)
-			std::cout << "Frame Completion Timestamp: " << frameCompletionTimestamp << std::endl;
+			std::cout << "Frame Completion Timestamp: " << frameCompletionTimestamp << std::endl;*/
+
 		break;
 	}
 #endif
