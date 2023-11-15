@@ -145,29 +145,50 @@ void NDI_Recv::run()
             if (video_frame.xres == 0 || video_frame.p_data == nullptr)
                 continue;
 
-            IDeckLinkVideoFrame* videoFrame = Interface_Manager::convert_ndi_2_decklink_frame_s(&video_frame);
+            // we can optimize further here and reduce the copying, but for now, this will have to do.
+            get_alpha_channel(video_frame.xres, video_frame.yres, video_frame.p_data, &alpha_channel);
+            alpha_2_decklink_gpu(video_frame.xres, video_frame.yres, alpha_channel, &key_packed);
 
-            if (videoFrame)
+            //std::cout<<"I execute" <<std::endl;
+
+            IDeckLinkVideoFrame* videoFrame = Interface_Manager::convert_ndi_2_decklink_frame_s(&video_frame);
+            IDeckLinkVideoFrame* keySignal = Interface_Manager::get_key_signal(video_frame, key_packed);
+
+            if (videoFrame && keySignal)
             {
                 auto loopThroughVideoFrame = std::make_shared<LoopThroughVideoFrame>(com_ptr<IDeckLinkVideoFrame>(videoFrame));
+                auto key_sig_loop_through = std::make_shared<LoopThroughVideoFrame>(com_ptr<IDeckLinkVideoFrame>(keySignal));
+
                 loopThroughVideoFrame->setInputFrameArrivedReferenceTime(stream_time);
+                key_sig_loop_through->setInputFrameArrivedReferenceTime(stream_time);
+
                 loopThroughVideoFrame->setVideoStreamTime(stream_time);
+                key_sig_loop_through->setVideoStreamTime(stream_time);
+
                 loopThroughVideoFrame->setVideoFrameDuration(frameDuration);
-                //videoArrivedCallback(std::move(loopThroughVideoFrame), std::move(nullptr));
+                key_sig_loop_through->setVideoFrameDuration(frameDuration);
+
+                videoArrivedCallback(std::move(loopThroughVideoFrame), std::move(key_sig_loop_through));
             }
+            
             stream_time += frameDuration;
             int frame_rate = video_frame.frame_rate_N / video_frame.frame_rate_D;
             int m_seconds = (1000 / frame_rate);
-
+            cudaFreeHost(alpha_channel);
             NDIlib_framesync_free_video(frames_synchronizer, &video_frame);
             end = std::chrono::high_resolution_clock::now();
-            std::this_thread::sleep_for(std::chrono::milliseconds(m_seconds-2)); // wait for a duration of 2 frames before pulling a frame.
+           
+            std::this_thread::sleep_for(std::chrono::milliseconds(m_seconds-((end-start).count()/1000000))); // wait for a duration of 2 frames before pulling a frame.
         }
         else {
-           
+            static bool kick_in = false;
             switch (NDIlib_recv_capture_v2(rec_instance, &video_frame, NULL, NULL, timeout)) {
                 // No data
             case NDIlib_frame_type_none:
+#ifdef _DEBUG
+                if(kick_in)
+                    std::cout << "No Frame has arrived yet" << std::endl;
+#endif
                 break;
                 // Video data
             case NDIlib_frame_type_video:
@@ -176,8 +197,6 @@ void NDI_Recv::run()
                 get_alpha_channel(video_frame.xres, video_frame.yres, video_frame.p_data, &alpha_channel);
                 alpha_2_decklink_gpu(video_frame.xres, video_frame.yres, alpha_channel, &key_packed);
 
-                //std::cout<<"I execute" <<std::endl;
-            
                 IDeckLinkVideoFrame* videoFrame = Interface_Manager::convert_ndi_2_decklink_frame_s(&video_frame);
                 IDeckLinkVideoFrame* keySignal = Interface_Manager::get_key_signal(video_frame, key_packed);
                 
@@ -200,7 +219,7 @@ void NDI_Recv::run()
                 stream_time += frameDuration;
                 NDIlib_recv_free_video_v2(rec_instance, &video_frame);
                 cudaFreeHost(alpha_channel);
-
+                kick_in = true;
                 break;
             }
             }

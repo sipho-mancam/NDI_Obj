@@ -20,11 +20,11 @@
 #else
 #pragma comment(lib, "Processing.NDI.Lib.x86.lib")
 #endif
-#define _DEBUG
-#ifdef _DEBUG
+
+
 #include <opencv2/opencv.hpp>
 #include <opencv2/highgui.hpp>
-#endif
+
 #include <Processing.NDI.Lib.h>
 #include "NDI_constants.hpp"
 #include "common.hpp"
@@ -60,7 +60,7 @@ protected:
     bool* exit;
     uint32_t timeout;
 public:
-    NDI_Obj(bool* ex = nullptr) : exit(ex), id(-1), timeout(50) { id = idGene(); }
+    NDI_Obj(bool* ex = nullptr) : exit(ex), id(-1), timeout(35) { id = idGene(); }
     virtual uint32_t getID() { return id; }
     virtual void run() = 0;
 };

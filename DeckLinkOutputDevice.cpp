@@ -113,7 +113,7 @@ ULONG DeckLinkOutputDevice::Release(void)
 HRESULT	DeckLinkOutputDevice::ScheduledFrameCompleted(IDeckLinkVideoFrame* completedFrame, BMDOutputFrameCompletionResult result)
 {
 	BMDTimeValue frameCompletionTimestamp;
-
+#ifdef _DEBUG
 	switch (result)
 	{
 	case bmdOutputFrameCompleted:
@@ -124,8 +124,11 @@ HRESULT	DeckLinkOutputDevice::ScheduledFrameCompleted(IDeckLinkVideoFrame* compl
 		break;
 	case bmdOutputFrameDisplayedLate:
 		std::cout << "Frame Displayed Late" << std::endl;
+		if (m_deckLinkOutput->GetFrameCompletionReferenceTimestamp(completedFrame, ReferenceTime::kTimescale, &frameCompletionTimestamp) == S_OK)
+			std::cout << "Frame Completion Timestamp: " << frameCompletionTimestamp << std::endl;
 		break;
 	}
+#endif
 	// Get frame completion timestamp
 	if (completedFrame)
 	{
