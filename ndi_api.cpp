@@ -344,7 +344,6 @@ NDI_Sender::NDI_Sender(bool* controller, std::string source)
     desc.clock_video = true;
     desc.p_ndi_name = "Decklink_Viz_bridge";
     desc.p_groups = NULL;
-
     sender = NDIlib_send_create(&desc);
 
     assert(sender != NULL);
