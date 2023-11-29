@@ -628,7 +628,11 @@ HRESULT InputLoopThrough(NDI_Recv* input_source)
 		// Register Input Callbacks
 		input_source->onVideoInputArrived([&](std::shared_ptr<LoopThroughVideoFrame> videoFrame, std::shared_ptr<LoopThroughVideoFrame> kSig) { videoDispatchQueue.dispatch(processVideo2, videoFrame, kSig, deckLinkOutput, deckLinkOutput2); });
 		// Register output callbacks
-		deckLinkOutput->onScheduledFrameCompleted([&](std::shared_ptr<LoopThroughVideoFrame> videoFrame) { updateCompletedFrameLatency(videoFrame, std::ref(printDispatchQueue)); });
+		deckLinkOutput->onScheduledFrameCompleted([&](std::shared_ptr<LoopThroughVideoFrame> videoFrame){
+			printf("I get called every frame\n");
+				updateCompletedFrameLatency(videoFrame, std::ref(printDispatchQueue));
+			
+			});
 	
 		/*if (!deckLinkInput->startCapture(currentFormatDesc.displayMode, currentFormatDesc.is3D, currentFormatDesc.pixelFormat, kAudioSampleType, g_audioChannelCount))
 		{

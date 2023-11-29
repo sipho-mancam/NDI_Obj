@@ -11,6 +11,7 @@
 #include <thread>
 
 #include "DeckLinkOutputDevice.h"
+#include "DeckLinkInputDevice.h"
 #include "DispatchQueue.hpp"
 #include "SampleQueue.h"
 #include "LatencyStatistics.h"

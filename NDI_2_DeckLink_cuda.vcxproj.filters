@@ -76,6 +76,12 @@
     <ClCompile Include="console_control.cpp">
       <Filter>Source</Filter>
     </ClCompile>
+    <ClCompile Include="lock_transfer.cpp">
+      <Filter>NDI</Filter>
+    </ClCompile>
+    <ClCompile Include="DeckLinkInputDevice.cpp">
+      <Filter>Source</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="common.hpp">
@@ -142,6 +148,15 @@
       <Filter>HeaderFiles</Filter>
     </ClInclude>
     <ClInclude Include="console_control.hpp">
+      <Filter>HeaderFiles</Filter>
+    </ClInclude>
+    <ClInclude Include="lock_transfer.hpp">
+      <Filter>HeaderFiles</Filter>
+    </ClInclude>
+    <ClInclude Include="DeckLinkAPI.h">
+      <Filter>HeaderFiles</Filter>
+    </ClInclude>
+    <ClInclude Include="DeckLinkInputDevice.h">
       <Filter>HeaderFiles</Filter>
     </ClInclude>
   </ItemGroup>

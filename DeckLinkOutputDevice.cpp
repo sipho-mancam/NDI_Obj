@@ -43,15 +43,20 @@
 
 #include "DeckLinkOutputDevice.h"
 #include "ReferenceTime.h"
+#include "console_control.hpp"
+#include <condition_variable>
+#include <mutex>
 
 DeckLinkOutputDevice::DeckLinkOutputDevice(com_ptr<IDeckLink>& device, int videoPrerollSize) :
 	m_refCount(1),
 	m_state(PlaybackState::Idle),
 	m_deckLink(device),
 	m_deckLinkOutput(IID_IDeckLinkOutput, device),
-	m_videoPrerollSize(videoPrerollSize),
+	m_videoPrerollSize(5),
 	m_seenFirstVideoFrame(false),
 	m_startPlaybackTime(0),
+	m_frameCounter(0),
+	m_transfer_lock(nullptr),
 	m_scheduledFrameCompletedCallback(nullptr)
 {
 	// Check that device has an output interface, this will throw an error if using a capture-only device such as DeckLink Mini Recorder
@@ -110,27 +115,31 @@ ULONG DeckLinkOutputDevice::Release(void)
 
 // IDeckLinkVideoOutputCallback interface
 
+std::mutex mtx;
+std::condition_variable cv;
+
+std::chrono::steady_clock::time_point end, start;
+
 HRESULT	DeckLinkOutputDevice::ScheduledFrameCompleted(IDeckLinkVideoFrame* completedFrame, BMDOutputFrameCompletionResult result)
-{
+{	
 	BMDTimeValue frameCompletionTimestamp;
+	static int offSetY = 1;
 #ifdef _DEBUG
 	switch (result)
 	{
-	case bmdOutputFrameCompleted:
-		//std::cout << "Frame completed" << std::endl;
-		break;
 	case bmdOutputFrameDropped:
-		std::cout << "Frame Dropped" << std::endl;
+		//gotoxy(0, 17+offSetY);
+		setColor(0x47);
+		printf("Frame Dropped") ;
+		setColor(0x70);
 		break;
 	case bmdOutputFrameDisplayedLate:
-		/*std::cout << "Frame Displayed Late" << std::endl;
-		if (m_deckLinkOutput->GetFrameCompletionReferenceTimestamp(completedFrame, ReferenceTime::kTimescale, &frameCompletionTimestamp) == S_OK)
-			std::cout << "Frame Completion Timestamp: " << frameCompletionTimestamp << std::endl;*/
-
+		printf("Frame Displayed Late");
 		break;
 	}
 #endif
-	// Get frame completion timestamp
+
+	 //Get frame completion timestamp
 	if (completedFrame)
 	{
 		// Get the time that scheduled frame was completely transmitted by the device

@@ -126,30 +126,55 @@ Discovery::~Discovery()
 void NDI_Recv::run()
 {
     bool check_init = false;
-    std::chrono::steady_clock::time_point start, end;
+    std::chrono::steady_clock::time_point m_start, m_end, start, end;
     BMDTimeValue stream_time = 0;
     BMDTimeValue frameDuration = 1000;
     uint* key_packed = nullptr;
     uchar* alpha_channel = nullptr;
+    int frameCounter = 0, l20Counter=0, l30Counter = 0, l40Counter=0;
+    cv::Mat preview;
+    NDIlib_video_frame_v2_t buffer1, buffer2;
 
     while (!(*exit) && running)
     {
         NDIlib_video_frame_v2_t video_frame;
         if (frames_synchronizer)
         {
-            start = std::chrono::high_resolution_clock::now();
-            //if ((start - end).count() / 1000000 > 40)
-            //std::cout << "NDI Frame Arrival Difference: " << (start - end).count() / 1000000.0 << " ms" << std::endl;
-
             NDIlib_framesync_capture_video(frames_synchronizer, &video_frame);
             if (video_frame.xres == 0 || video_frame.p_data == nullptr)
                 continue;
 
+            start = std::chrono::high_resolution_clock::now();
+
+            if ((start - end).count() / 1000000 < 20)
+            {
+                l20Counter++;
+
+            }
+            else if ((start - end).count() / 1000000 < 30) l30Counter++;
+            else l40Counter++;
+
+            if (frameCounter == 0)
+            {
+                m_start = std::chrono::high_resolution_clock::now();
+            }
+            frameCounter += 1;
+
+            m_end = std::chrono::high_resolution_clock::now();
+            if ((m_end - m_start) >= std::chrono::seconds(1))
+            {
+                gotoxy(0, 15);
+                printf("Time: %d %s %d %s\n", (m_end - m_start).count() / 1000000, "ms : ", frameCounter, " fps");
+                printf("Frames <20ms: %d  \nFrames <30ms: %d  \nFrames <40ms: %d  ", l20Counter, l30Counter, l40Counter);
+                frameCounter = 0;
+                l20Counter = 0;
+                l30Counter = 0;
+                l40Counter = 0;
+            }
+
             // we can optimize further here and reduce the copying, but for now, this will have to do.
             get_alpha_channel(video_frame.xres, video_frame.yres, video_frame.p_data, &alpha_channel);
             alpha_2_decklink_gpu(video_frame.xres, video_frame.yres, alpha_channel, &key_packed);
-
-            //std::cout<<"I execute" <<std::endl;
 
             IDeckLinkVideoFrame* videoFrame = Interface_Manager::convert_ndi_2_decklink_frame_s(&video_frame);
             IDeckLinkVideoFrame* keySignal = Interface_Manager::get_key_signal(video_frame, key_packed);
@@ -170,29 +195,48 @@ void NDI_Recv::run()
 
                 videoArrivedCallback(std::move(loopThroughVideoFrame), std::move(key_sig_loop_through));
             }
-            
             stream_time += frameDuration;
-            int frame_rate = video_frame.frame_rate_N / video_frame.frame_rate_D;
-            int m_seconds = (1000 / frame_rate);
-            cudaFreeHost(alpha_channel);
             NDIlib_framesync_free_video(frames_synchronizer, &video_frame);
+            m_lock_transfer->wait();
             end = std::chrono::high_resolution_clock::now();
-           
-            std::this_thread::sleep_for(std::chrono::milliseconds(m_seconds-((end-start).count()/1000000))); // wait for a duration of 2 frames before pulling a frame.
         }
-        else {
+        else 
+        {
             static bool kick_in = false;
             switch (NDIlib_recv_capture_v2(rec_instance, &video_frame, NULL, NULL, timeout)) {
                 // No data
             case NDIlib_frame_type_none:
-#ifdef _DEBUG
-                if(kick_in)
-                    std::cout << "No Frame has arrived yet" << std::endl;
-#endif
                 break;
                 // Video data
             case NDIlib_frame_type_video:
             {
+                start = std::chrono::high_resolution_clock::now();
+
+                if ((start - end).count() / 1000000 < 20)
+                {
+                    l20Counter++;
+
+                }
+                else if ((start - end).count() / 1000000 < 30) l30Counter++;
+                else l40Counter++;
+                
+                if (frameCounter == 0)
+                {
+                    m_start = std::chrono::high_resolution_clock::now();
+                }
+                frameCounter += 1;
+                
+                m_end = std::chrono::high_resolution_clock::now();
+                if ((m_end - m_start) >= std::chrono::seconds(1))
+                {
+                    gotoxy(0, 15);
+                    printf("Time: %d %s %d %s\n", (m_end - m_start).count()/1000000 , "ms : ", frameCounter , " fps");
+                    printf("Frames <20ms: %d  \nFrames <30ms: %d  \nFrames <40ms: %d  ", l20Counter, l30Counter, l40Counter);
+                    frameCounter = 0;
+                    l20Counter = 0;
+                    l30Counter = 0;
+                    l40Counter = 0;
+                }
                 // we can optimize further here and reduce the copying, but for now, this will have to do.
                 get_alpha_channel(video_frame.xres, video_frame.yres, video_frame.p_data, &alpha_channel);
                 alpha_2_decklink_gpu(video_frame.xres, video_frame.yres, alpha_channel, &key_packed);
@@ -217,9 +261,16 @@ void NDI_Recv::run()
                     videoArrivedCallback(std::move(loopThroughVideoFrame),std::move(key_sig_loop_through));
                 }
                 stream_time += frameDuration;
+
+               /* preview.create(cv::Size(1920, 1080), CV_8UC4);
+                preview.data = video_frame.p_data;
+                cv::imshow("Preview NDI Input", preview);
+                cv::waitKey(1);*/
+
                 NDIlib_recv_free_video_v2(rec_instance, &video_frame);
                 cudaFreeHost(alpha_channel);
                 kick_in = true;
+                end = std::chrono::high_resolution_clock::now();
                 break;
             }
             }
@@ -271,7 +322,6 @@ NDI_Recv::NDI_Recv(bool* controller, uint32_t c, std::string s)
     if (!s.empty())
     {
         s_connect.p_ndi_name = source.c_str();
-
         //recv_desc.bandwidth = NDIlib_recv_bandwidth_highest;
         recv_desc.source_to_connect_to = s_connect; // this will allow the NDI endpoint connect to the specified string upon creation...
         //recv_desc.color_format = NDIlib_recv_color_format_best;

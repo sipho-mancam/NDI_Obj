@@ -53,6 +53,7 @@
 #include "SampleQueue.h"
 #include "platform.h"
 #include "com_ptr.h"
+#include "lock_transfer.hpp"
 
 class DeckLinkOutputDevice : public IDeckLinkVideoOutputCallback, public IDeckLinkAudioOutputCallback
 {
@@ -89,7 +90,8 @@ public:
 	bool						isPlaybackActive(void);
 	void						scheduleVideoFrame(std::shared_ptr<LoopThroughVideoFrame> videoFrame) { m_outputVideoFrameQueue.pushSample(videoFrame); }
 	void						onScheduledFrameCompleted(const ScheduledFrameCompletedCallback& callback) { m_scheduledFrameCompletedCallback = callback; }
-
+	void						setLockTransfer(ImplicitLock* genLockTransfer) { m_transfer_lock = genLockTransfer; }
+	ImplicitLock* m_transfer_lock;
 
 private:
 	std::atomic<ULONG>										m_refCount;
@@ -100,6 +102,7 @@ private:
 	//
 	SampleQueue<std::shared_ptr<LoopThroughVideoFrame>>		m_outputVideoFrameQueue;
 	ScheduledFramesList										m_scheduledFramesList;
+	
 	//
 	uint32_t												m_videoPrerollSize;
 	//
@@ -115,7 +118,9 @@ private:
 	std::thread												m_scheduleVideoFramesThread;
 	//
 	ScheduledFrameCompletedCallback							m_scheduledFrameCompletedCallback;
+	int														m_frameCounter;
 	//
+	std::chrono::steady_clock::time_point					start, end;
 
 	// Private methods
 	void		scheduleVideoFramesThread(void);

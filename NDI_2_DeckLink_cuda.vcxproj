@@ -14,9 +14,11 @@
     <ClInclude Include="common.hpp" />
     <ClInclude Include="com_ptr.h" />
     <ClInclude Include="console_control.hpp" />
+    <ClInclude Include="DeckLinkAPI.h" />
     <ClInclude Include="decklinkAPI.hpp" />
     <ClInclude Include="DeckLinkAPI_h.h" />
     <ClInclude Include="DeckLinkDevice.h" />
+    <ClInclude Include="DeckLinkInputDevice.h" />
     <ClInclude Include="DeckLinkOutputDevice.h" />
     <ClInclude Include="decklink_api.hpp" />
     <ClInclude Include="decklink_kernels.cuh" />
@@ -24,6 +26,7 @@
     <ClInclude Include="input_output.hpp" />
     <ClInclude Include="interface_manager.hpp" />
     <ClInclude Include="LatencyStatistics.h" />
+    <ClInclude Include="lock_transfer.hpp" />
     <ClInclude Include="LoopThroughVideoFrame.h" />
     <ClInclude Include="ndi_api.hpp" />
     <ClInclude Include="NDI_constants.hpp" />
@@ -38,12 +41,14 @@
     <ClCompile Include="console_control.cpp" />
     <ClCompile Include="DeckLinkAPI_i.c" />
     <ClCompile Include="DeckLinkDevice.cpp" />
+    <ClCompile Include="DeckLinkInputDevice.cpp" />
     <ClCompile Include="DeckLinkOutputDevice.cpp" />
     <ClCompile Include="decklink_api_2.cpp" />
     <ClCompile Include="DispatchQueue.cpp" />
     <ClCompile Include="InputLoopThrough.cpp" />
     <ClCompile Include="interface_manager.cpp" />
     <ClCompile Include="LatencyStatistics.cpp" />
+    <ClCompile Include="lock_transfer.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="ndi_api.cpp" />
     <ClCompile Include="platform.cpp" />

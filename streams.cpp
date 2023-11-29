@@ -49,12 +49,39 @@ OutputStream::OutputStream(com_ptr<IDeckLink>& device,com_ptr<IDeckLink>& kDevic
 
 	currentFormatDesc = { kInitialDisplayMode, false, kInitialPixelFormat };
 	stream_id = id;
-	init();
 
+	init();
+}
+
+OutputStream::OutputStream(com_ptr<IDeckLink>& device, com_ptr<IDeckLink>& kDevice, com_ptr<IDeckLink>& refSig, int res, int id)
+	: Stream(),
+	kInitialPixelFormat(bmdFormat10BitYUV),
+	kWaitForReferenceToLock(true),
+	exitFlag(false),
+	kOutputVideoPreroll(1),
+	kVideoDispatcherThreadCount(3),
+	deckLink(device.get()),
+	kDeckLink(kDevice.get()),
+	lockSig(refSig.get()),
+	videoDispatchQueue_s(kVideoDispatcherThreadCount),
+	receiver(nullptr),
+	printDispatchQueue_s(1),
+	kAudioSampleType(bmdAudioSampleType32bitInteger)
+{
+	if (res == displayResoltion::HD)
+		kInitialDisplayMode = bmdModeHD1080i50;
+	else if (res == displayResoltion::UHD)
+		kInitialDisplayMode = bmdMode4K2160p50;
+
+	currentFormatDesc = { kInitialDisplayMode, false, kInitialPixelFormat };
+	stream_id = id;
+
+	init();
 }
 
 void OutputStream::init()
 {
+	implicit_lock = new ImplicitLock();
 	// Initialize DeckLink
 	com_ptr<IDeckLinkProfileAttributes>		deckLinkAttributes(IID_IDeckLinkProfileAttributes, deckLink);
 	int64_t									duplexMode;
@@ -104,6 +131,8 @@ void OutputStream::init()
 			{
 				deckLinkOutput = make_com_ptr<DeckLinkOutputDevice>(deckLink, prerollFrames);
 				deckLinkOutput2 = make_com_ptr<DeckLinkOutputDevice>(kDeckLink, prerollFrames); // create second device for the key.
+				if(lockSig.get())
+					deckLinkInput = make_com_ptr<DeckLinkInputDevice>(lockSig);
 			}
 			catch (const std::exception& e)
 			{
@@ -113,6 +142,7 @@ void OutputStream::init()
 			setColor(0x71);
 			dispatch_printf(printDispatchQueue_s, "[info] Using output device: %s for Fill\n", getDeckLinkDisplayName(deckLink).c_str());
 			dispatch_printf(printDispatchQueue_s, "[info] Using output device: %s for Key\n", getDeckLinkDisplayName(kDeckLink).c_str());
+			dispatch_printf(printDispatchQueue_s, "[info] Using input device: %s as NDI reference\n", getDeckLinkDisplayName(lockSig).c_str());
 			//setColor(0x70);
 		}
 	}
@@ -120,7 +150,6 @@ void OutputStream::init()
 	if (!deckLinkOutput || !deckLinkOutput2)
 	{
 		fprintf(stderr, "Unable to find both active input and output devices\n");
-		//return E_FAIL;
 	}
 
 	// Initialize NDI
@@ -137,8 +166,20 @@ void OutputStream::init()
 	// Register Input Callbacks
 	receiver->onVideoInputArrived([&](std::shared_ptr<LoopThroughVideoFrame> videoFrame, std::shared_ptr<LoopThroughVideoFrame> keySignal) { videoDispatchQueue_s.dispatch(processVideo2, videoFrame, keySignal, deckLinkOutput, deckLinkOutput2); });
 	// Register output callbacks
-	deckLinkOutput->onScheduledFrameCompleted([&](std::shared_ptr<LoopThroughVideoFrame> videoFrame) { updateCompletedFrameLatency(videoFrame, std::ref(printDispatchQueue_s)); });
+	//deckLinkOutput->onScheduledFrameCompleted([&](std::shared_ptr<LoopThroughVideoFrame> videoFrame) { updateCompletedFrameLatency(videoFrame, std::ref(printDispatchQueue_s)); });
+	deckLinkOutput->setLockTransfer(implicit_lock);
+	deckLinkInput->setLockTransfer(implicit_lock);
+	//deckLinkOutput2->setLockTransfer(implicit_lock);
+	receiver->setLockTransfer(implicit_lock);
 
+	if (lockSig.get())
+	{
+		if (!deckLinkInput->startCapture(currentFormatDesc.displayMode, currentFormatDesc.is3D, currentFormatDesc.pixelFormat))
+		{
+			fprintf(stderr, "Unable to enable input on the selected device\n");
+		}
+		deckLinkInput->setReadyForCapture();
+	}
 	
 }
 
@@ -152,7 +193,9 @@ void OutputStream::start_stream()
 		std::cout << "[info] Waiting for reference to lock...\n" ;
 		setColor(0x71);
 	}
-		
+	
+	// start NDI input
+	receiver->start();
 
 	if (!deckLinkOutput->startPlayback(currentFormatDesc.displayMode, currentFormatDesc.is3D, currentFormatDesc.pixelFormat, kAudioSampleType, 1, kWaitForReferenceToLock)
 		|| !deckLinkOutput2->startPlayback(currentFormatDesc.displayMode, currentFormatDesc.is3D, currentFormatDesc.pixelFormat, kAudioSampleType, 1, kWaitForReferenceToLock))
@@ -168,8 +211,7 @@ void OutputStream::start_stream()
 	setColor(0x71);
 	dispatch_printf(printDispatchQueue_s, "[info] Starting stream .... \n");
 
-	// start NDI input
-	receiver->start();
+	
 }
 
 void OutputStream::stop_stream()
@@ -206,7 +248,7 @@ OutputStream* StreamManager::create_output_stream(int resolution)
 {
 	try {
 		//std::cout << unused_devices.size() << std::endl;
-		OutputStream* out_stream = new OutputStream(unused_devices[3], unused_devices[1], resolution);
+		OutputStream* out_stream = new OutputStream(unused_devices[3], unused_devices[1], unused_devices[0], resolution);
 		com_ptr<IDeckLink> dev = unused_devices[3];
 		used_devices.push_back(dev);
 		dev = unused_devices[2];

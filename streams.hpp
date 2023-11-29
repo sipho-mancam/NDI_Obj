@@ -2,6 +2,7 @@
 #include "input_output.hpp"
 #include "ndi_api.hpp"
 #include "console_control.hpp"
+#include "lock_transfer.hpp"
 
 namespace ndi_deck {
 	enum displayResoltion { HD, UHD };
@@ -28,8 +29,10 @@ namespace ndi_deck {
 		int kVideoDispatcherThreadCount;
 		com_ptr<IDeckLink>					deckLink;
 		com_ptr<IDeckLink>					kDeckLink;
+		com_ptr<IDeckLink>					lockSig;
 		com_ptr<DeckLinkOutputDevice>		deckLinkOutput;
 		com_ptr<DeckLinkOutputDevice>		deckLinkOutput2;
+		com_ptr<DeckLinkInputDevice>		deckLinkInput;
 
 		DispatchQueue 						videoDispatchQueue_s;
 		NDI_Recv* receiver;
@@ -37,14 +40,17 @@ namespace ndi_deck {
 		HRESULT result;
 		DispatchQueue printDispatchQueue_s;
 		const BMDAudioSampleType	kAudioSampleType;
+		ImplicitLock* implicit_lock;
 	
 
 	public:
 		OutputStream(com_ptr<IDeckLink>& device, int res, int id=0);
 		OutputStream(com_ptr<IDeckLink>& device,com_ptr<IDeckLink>&dev2, int res, int id = 0);
+		OutputStream(com_ptr<IDeckLink>& device, com_ptr<IDeckLink>& dev2, com_ptr<IDeckLink>& lockDev, int res, int id = 0);
 		void init() override;
 		void start_stream() override;
 		void stop_stream() override;
+		void setLockinDevice(com_ptr<IDeckLink>& lock) { lockSig = lock; }
 	};
 
 	class StreamManager {

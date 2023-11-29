@@ -32,6 +32,7 @@
 #include "decklink_kernels.cuh"
 #include "LoopThroughVideoFrame.h"
 #include "interface_manager.hpp"
+#include "lock_transfer.hpp"
 
 static uint32_t ids = 0;
 
@@ -60,7 +61,7 @@ protected:
     bool* exit;
     uint32_t timeout;
 public:
-    NDI_Obj(bool* ex = nullptr) : exit(ex), id(-1), timeout(35) { id = idGene(); }
+    NDI_Obj(bool* ex = nullptr) : exit(ex), id(-1), timeout(100) { id = idGene(); }
     virtual uint32_t getID() { return id; }
     virtual void run() = 0;
 };
@@ -116,6 +117,7 @@ protected:
     DeckLinkOutputPort* keyPort;
     DeckLinkOutputPort* fillPort;
     bool connected, running, fillAndKey;
+    ImplicitLock* m_lock_transfer;
    
 
     NDIlib_video_frame_v2_t* persFrame;
@@ -145,6 +147,7 @@ public:
     void clearAll();
     uint32_t getChannel() { return channel; }
     std::string getSource() { return source; }
+    void setLockTransfer(ImplicitLock* genLock) { m_lock_transfer = genLock; }
 
     ~NDI_Recv();
 };
